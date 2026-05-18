@@ -49,7 +49,6 @@ function Index() {
   const [k401Pct, setK401Pct] = useState(10);
   const [rothPct, setRothPct] = useState(5);
   const [studentLoan, setStudentLoan] = useState(4800); // yearly
-  const [taxPct, setTaxPct] = useState(22.2);
   const [pocket, setPocket] = useState<PocketItem[]>([
     { id: "1", name: "Rent", amount: 1400 },
     { id: "2", name: "Groceries", amount: 450 },
@@ -64,12 +63,17 @@ function Index() {
     const hysa = income * (hysaPct / 100);
     const k401 = income * (k401Pct / 100);
     const roth = income * (rothPct / 100);
-    const taxes = income * (taxPct / 100);
+    // Traditional 401(k) reduces taxable income; Roth does not
+    const fed = federalTax(income, k401);
+    const il = Math.max(0, income - k401) * IL_RATE;
+    const ss = Math.min(income, 168600) * 0.062;
+    const medicare = income * 0.0145;
+    const taxes = fed + il + ss + medicare;
     const pocketYr = pocket.reduce((s, p) => s + p.amount, 0) * 12;
     const allocated = taxes + hysa + k401 + roth + studentLoan + pocketYr;
     const remaining = income - allocated;
-    return { hysa, k401, roth, taxes, pocketYr, allocated, remaining, studentLoan };
-  }, [income, hysaPct, k401Pct, rothPct, studentLoan, pocket, taxPct]);
+    return { hysa, k401, roth, taxes, fed, il, ss, medicare, pocketYr, allocated, remaining, studentLoan };
+  }, [income, hysaPct, k401Pct, rothPct, studentLoan, pocket]);
 
   const divisor = view === "monthly" ? 12 : 1;
   const fmt = (n: number) => money(n / divisor);
@@ -118,20 +122,25 @@ function Index() {
             <PctInput label="HYSA %" value={hysaPct} set={setHysaPct} />
             <PctInput label="401(k) %" value={k401Pct} set={setK401Pct} />
             <PctInput label="Roth IRA %" value={rothPct} set={setRothPct} />
-            <PctInput label="Tax %" value={taxPct} set={setTaxPct} />
-            <div className="col-span-2">
-              <label className="label-pixel">Student Loans /yr</label>
+            <div>
+              <label className="label-pixel">Loans /yr</label>
               <input type="number" className="pixel-input mt-1" value={studentLoan}
                 onChange={(e) => setStudentLoan(Number(e.target.value) || 0)} />
             </div>
           </div>
 
           <div className="pixel-box-sm space-y-1 text-base">
-            <div className="label-pixel mb-2">Tax Breakdown</div>
-            <Row label={`Rate (${taxPct}%)`} v={`${taxPct}%`} />
-            <Row label="Yearly" v={money(calc.taxes)} />
+            <div className="label-pixel mb-2">Tax Breakdown /mo</div>
+            <Row label="Federal" v={money(calc.fed / 12)} />
+            <Row label="Illinois (4.95%)" v={money(calc.il / 12)} />
+            <Row label="Social Security (6.2%)" v={money(calc.ss / 12)} />
+            <Row label="Medicare (1.45%)" v={money(calc.medicare / 12)} />
             <div className="mt-2 border-t-2 border-dashed border-border pt-2">
-              <Row label="Monthly" v={money(calc.taxes / 12)} bold />
+              <Row label="Total /mo" v={money(calc.taxes / 12)} bold />
+              <Row
+                label="Effective rate"
+                v={`${income > 0 ? ((calc.taxes / income) * 100).toFixed(2) : "0.00"}%`}
+              />
             </div>
           </div>
         </section>
