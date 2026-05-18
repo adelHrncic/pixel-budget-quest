@@ -49,6 +49,7 @@ function Index() {
   const [k401Pct, setK401Pct] = useState(10);
   const [rothPct, setRothPct] = useState(5);
   const [studentLoan, setStudentLoan] = useState(4800); // yearly
+  const [taxPct, setTaxPct] = useState(22.2);
   const [pocket, setPocket] = useState<PocketItem[]>([
     { id: "1", name: "Rent", amount: 1400 },
     { id: "2", name: "Groceries", amount: 450 },
