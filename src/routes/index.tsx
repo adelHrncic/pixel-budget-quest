@@ -118,7 +118,8 @@ function Index() {
             <PctInput label="HYSA %" value={hysaPct} set={setHysaPct} />
             <PctInput label="401(k) %" value={k401Pct} set={setK401Pct} />
             <PctInput label="Roth IRA %" value={rothPct} set={setRothPct} />
-            <div>
+            <PctInput label="Tax %" value={taxPct} set={setTaxPct} />
+            <div className="col-span-2">
               <label className="label-pixel">Student Loans /yr</label>
               <input type="number" className="pixel-input mt-1" value={studentLoan}
                 onChange={(e) => setStudentLoan(Number(e.target.value) || 0)} />
@@ -126,12 +127,11 @@ function Index() {
           </div>
 
           <div className="pixel-box-sm space-y-1 text-base">
-            <div className="label-pixel mb-2">Tax Breakdown (Yearly)</div>
-            <Row label="Federal" v={money(calc.fed)} />
-            <Row label="Illinois 4.95%" v={money(calc.il)} />
-            <Row label="FICA" v={money(calc.ficaTax)} />
+            <div className="label-pixel mb-2">Tax Breakdown</div>
+            <Row label={`Rate (${taxPct}%)`} v={`${taxPct}%`} />
+            <Row label="Yearly" v={money(calc.taxes)} />
             <div className="mt-2 border-t-2 border-dashed border-border pt-2">
-              <Row label="TOTAL TAX" v={money(calc.taxes)} bold />
+              <Row label="Monthly" v={money(calc.taxes / 12)} bold />
             </div>
           </div>
         </section>
