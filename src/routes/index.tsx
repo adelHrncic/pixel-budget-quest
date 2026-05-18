@@ -78,13 +78,26 @@ function Index() {
   const divisor = view === "monthly" ? 12 : 1;
   const fmt = (n: number) => money(n / divisor);
 
+  const POCKET_COLORS = [
+    "oklch(0.80 0.18 50)",
+    "oklch(0.76 0.20 30)",
+    "oklch(0.82 0.16 70)",
+    "oklch(0.84 0.14 88)",
+    "oklch(0.74 0.22 18)",
+    "oklch(0.78 0.15 60)",
+  ];
+
   const chartData = [
     { name: "Taxes", value: calc.taxes, color: "var(--life)" },
     { name: "HYSA", value: calc.hysa, color: "var(--mana)" },
     { name: "401(k)", value: calc.k401, color: "var(--xp)" },
     { name: "Roth IRA", value: calc.roth, color: "var(--coin)" },
     { name: "Student Loans", value: calc.studentLoan, color: "var(--danger)" },
-    { name: "Pocket Money", value: calc.pocketYr, color: "var(--pocket)" },
+    ...pocket.map((p, i) => ({
+      name: p.name,
+      value: p.amount * 12,
+      color: POCKET_COLORS[i % POCKET_COLORS.length],
+    })),
   ].filter((d) => d.value > 0);
 
   const addPocket = () => {
