@@ -157,7 +157,7 @@ function Index() {
                 </Pie>
                 <Tooltip
                   contentStyle={{ background: "var(--card)", border: "3px solid var(--border)", fontFamily: "var(--font-mono)", borderRadius: 0 }}
-                  formatter={(v: number) => fmt(v)}
+                  formatter={(v) => fmt(Number(v))}
                 />
               </PieChart>
             </ResponsiveContainer>
