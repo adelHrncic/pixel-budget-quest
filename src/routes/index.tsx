@@ -64,15 +64,12 @@ function Index() {
     const hysa = income * (hysaPct / 100);
     const k401 = income * (k401Pct / 100);
     const roth = income * (rothPct / 100);
-    const fed = federalTax(income, k401); // 401k pretax reduces taxable
-    const il = Math.max(0, income - k401) * IL_RATE;
-    const ficaTax = fica(income);
-    const taxes = fed + il + ficaTax;
+    const taxes = income * (taxPct / 100);
     const pocketYr = pocket.reduce((s, p) => s + p.amount, 0) * 12;
     const allocated = taxes + hysa + k401 + roth + studentLoan + pocketYr;
     const remaining = income - allocated;
-    return { hysa, k401, roth, taxes, fed, il, ficaTax, pocketYr, allocated, remaining, studentLoan };
-  }, [income, hysaPct, k401Pct, rothPct, studentLoan, pocket]);
+    return { hysa, k401, roth, taxes, pocketYr, allocated, remaining, studentLoan };
+  }, [income, hysaPct, k401Pct, rothPct, studentLoan, pocket, taxPct]);
 
   const divisor = view === "monthly" ? 12 : 1;
   const fmt = (n: number) => money(n / divisor);
