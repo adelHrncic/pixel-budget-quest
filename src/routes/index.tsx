@@ -1,6 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -58,6 +59,76 @@ function Index() {
   const [newName, setNewName] = useState("");
   const [newAmt, setNewAmt] = useState<number | "">("");
   const [view, setView] = useState<"monthly" | "yearly">("monthly");
+  const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string>("");
+  const [loaded, setLoaded] = useState(false);
+  const nav = useNavigate();
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Auth gate + initial load
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      if (!session) {
+        setUserId(null);
+        nav({ to: "/login" });
+      } else {
+        setUserId(session.user.id);
+        setUserEmail(session.user.email ?? "");
+      }
+    });
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session) {
+        nav({ to: "/login" });
+        return;
+      }
+      const uid = data.session.user.id;
+      setUserId(uid);
+      setUserEmail(data.session.user.email ?? "");
+      const { data: row } = await supabase
+        .from("budgets")
+        .select("*")
+        .eq("user_id", uid)
+        .maybeSingle();
+      if (row) {
+        setIncome(Number(row.income));
+        setHysaPct(Number(row.hysa_pct));
+        setK401Pct(Number(row.k401_pct));
+        setRothPct(Number(row.roth_pct));
+        setStudentLoan(Number(row.student_loan));
+        setPocket(Array.isArray(row.pocket) ? (row.pocket as PocketItem[]) : []);
+      }
+      setLoaded(true);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, [nav]);
+
+  // Debounced save
+  useEffect(() => {
+    if (!loaded || !userId) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      supabase.from("budgets").upsert({
+        user_id: userId,
+        income,
+        hysa_pct: hysaPct,
+        k401_pct: k401Pct,
+        roth_pct: rothPct,
+        student_loan: studentLoan,
+        pocket: pocket as never,
+        updated_at: new Date().toISOString(),
+      }).then(({ error }) => {
+        if (error) console.error("save error", error);
+      });
+    }, 600);
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, [loaded, userId, income, hysaPct, k401Pct, rothPct, studentLoan, pocket]);
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    nav({ to: "/login" });
+  };
 
   const calc = useMemo(() => {
     const hysa = income * (hysaPct / 100);
@@ -112,12 +183,19 @@ function Index() {
 
   return (
     <main className="min-h-screen px-4 py-8 md:px-8">
-      <header className="mx-auto mb-8 max-w-6xl text-center">
+      <header className="mx-auto mb-8 max-w-6xl relative text-center">
         <div className="label-pixel mb-2">★ PLAYER 1 ★</div>
         <h1 className="text-2xl md:text-4xl text-primary" style={{ textShadow: "4px 4px 0 #000" }}>
           BUDGET QUEST
         </h1>
         <p className="mt-2 text-muted-foreground">~ press start to manage your gold ~ <span className="blink">_</span></p>
+        {userId && (
+          <div className="mt-3 flex items-center justify-center gap-3 flex-wrap text-sm">
+            <span className="text-accent truncate max-w-[200px]">● {userEmail}</span>
+            <button className="pixel-btn danger" onClick={signOut}>LOG OUT</button>
+            {!loaded && <span className="text-muted-foreground blink">loading save...</span>}
+          </div>
+        )}
       </header>
 
       <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-2">
