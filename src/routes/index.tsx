@@ -160,6 +160,83 @@ function Index() {
     nav({ to: "/login" });
   };
 
+  // Allocate a paycheck proportionally based on the yearly plan
+  const allocatePaycheck = (amount: number): Allocations => {
+    if (income <= 0 || amount <= 0) {
+      return { taxes: 0, hysa: 0, k401: 0, roth: 0, studentLoan: 0, pocket: 0 };
+    }
+    const r = amount / income;
+    return {
+      taxes: calc.taxes * r,
+      hysa: calc.hysa * r,
+      k401: calc.k401 * r,
+      roth: calc.roth * r,
+      studentLoan: studentLoan * r,
+      pocket: calc.pocketYr * r,
+    };
+  };
+
+  const addPaycheck = async () => {
+    if (!userId || !pcAmount || Number(pcAmount) <= 0) return;
+    const amt = Number(pcAmount);
+    const alloc = allocatePaycheck(amt);
+    const { data, error } = await supabase
+      .from("paychecks")
+      .insert({ user_id: userId, amount: amt, received_at: pcDate, allocations: alloc as never })
+      .select("id, amount, received_at, allocations")
+      .single();
+    if (error) {
+      console.error(error);
+      return;
+    }
+    setPaychecks((prev) =>
+      [...prev, {
+        id: data.id,
+        amount: Number(data.amount),
+        received_at: data.received_at as string,
+        allocations: data.allocations as Allocations,
+      }].sort((a, b) => a.received_at.localeCompare(b.received_at))
+    );
+    setPcAmount("");
+  };
+
+  const removePaycheck = async (id: string) => {
+    const { error } = await supabase.from("paychecks").delete().eq("id", id);
+    if (error) { console.error(error); return; }
+    setPaychecks((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  // Cumulative growth over time
+  const growthData = useMemo(() => {
+    const running: Allocations = { taxes: 0, hysa: 0, k401: 0, roth: 0, studentLoan: 0, pocket: 0 };
+    let total = 0;
+    return paychecks.map((p) => {
+      for (const k of ALLOC_KEYS) running[k] += p.allocations?.[k] ?? 0;
+      total += p.amount;
+      return {
+        date: p.received_at,
+        Total: Math.round(total),
+        Taxes: Math.round(running.taxes),
+        HYSA: Math.round(running.hysa),
+        "401(k)": Math.round(running.k401),
+        "Roth IRA": Math.round(running.roth),
+        Loans: Math.round(running.studentLoan),
+        Pocket: Math.round(running.pocket),
+      };
+    });
+  }, [paychecks]);
+
+  const totals = useMemo(() => {
+    const t: Allocations = { taxes: 0, hysa: 0, k401: 0, roth: 0, studentLoan: 0, pocket: 0 };
+    let sum = 0;
+    for (const p of paychecks) {
+      sum += p.amount;
+      for (const k of ALLOC_KEYS) t[k] += p.allocations?.[k] ?? 0;
+    }
+    return { sum, t };
+  }, [paychecks]);
+
+
   const calc = useMemo(() => {
     const hysa = income * (hysaPct / 100);
     const k401 = income * (k401Pct / 100);
