@@ -13,7 +13,19 @@ export const Route = createFileRoute("/")({
   }),
 });
 
+
 type PocketItem = { id: string; name: string; amount: number };
+type Allocations = { taxes: number; hysa: number; k401: number; roth: number; studentLoan: number; pocket: number };
+type Paycheck = { id: string; amount: number; received_at: string; allocations: Allocations };
+
+const ALLOC_KEYS: (keyof Allocations)[] = ["taxes", "hysa", "k401", "roth", "studentLoan", "pocket"];
+const ALLOC_LABELS: Record<keyof Allocations, string> = {
+  taxes: "Taxes", hysa: "HYSA", k401: "401(k)", roth: "Roth IRA", studentLoan: "Loans", pocket: "Pocket",
+};
+const ALLOC_COLORS: Record<keyof Allocations, string> = {
+  taxes: "var(--life)", hysa: "var(--mana)", k401: "var(--xp)",
+  roth: "var(--coin)", studentLoan: "var(--danger)", pocket: "var(--pocket)",
+};
 
 // Illinois flat income tax 2024: 4.95%
 const IL_RATE = 0.0495;
