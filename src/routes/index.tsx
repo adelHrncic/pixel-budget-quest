@@ -183,12 +183,19 @@ function Index() {
 
   return (
     <main className="min-h-screen px-4 py-8 md:px-8">
-      <header className="mx-auto mb-8 max-w-6xl text-center">
+      <header className="mx-auto mb-8 max-w-6xl relative text-center">
         <div className="label-pixel mb-2">★ PLAYER 1 ★</div>
         <h1 className="text-2xl md:text-4xl text-primary" style={{ textShadow: "4px 4px 0 #000" }}>
           BUDGET QUEST
         </h1>
         <p className="mt-2 text-muted-foreground">~ press start to manage your gold ~ <span className="blink">_</span></p>
+        {userId && (
+          <div className="mt-3 flex items-center justify-center gap-3 flex-wrap text-sm">
+            <span className="text-accent truncate max-w-[200px]">● {userEmail}</span>
+            <button className="pixel-btn danger" onClick={signOut}>LOG OUT</button>
+            {!loaded && <span className="text-muted-foreground blink">loading save...</span>}
+          </div>
+        )}
       </header>
 
       <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-2">
