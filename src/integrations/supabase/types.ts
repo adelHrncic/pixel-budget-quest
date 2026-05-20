@@ -14,7 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      budgets: {
+        Row: {
+          hysa_pct: number
+          income: number
+          k401_pct: number
+          pocket: Json
+          roth_pct: number
+          student_loan: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          hysa_pct?: number
+          income?: number
+          k401_pct?: number
+          pocket?: Json
+          roth_pct?: number
+          student_loan?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          hysa_pct?: number
+          income?: number
+          k401_pct?: number
+          pocket?: Json
+          roth_pct?: number
+          student_loan?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
