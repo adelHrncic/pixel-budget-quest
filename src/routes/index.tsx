@@ -74,6 +74,9 @@ function Index() {
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string>("");
   const [loaded, setLoaded] = useState(false);
+  const [paychecks, setPaychecks] = useState<Paycheck[]>([]);
+  const [pcAmount, setPcAmount] = useState<number | "">("");
+  const [pcDate, setPcDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const nav = useNavigate();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
