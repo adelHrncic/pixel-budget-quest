@@ -47,6 +47,33 @@ export type Database = {
         }
         Relationships: []
       }
+      paychecks: {
+        Row: {
+          allocations: Json
+          amount: number
+          created_at: string
+          id: string
+          received_at: string
+          user_id: string
+        }
+        Insert: {
+          allocations?: Json
+          amount: number
+          created_at?: string
+          id?: string
+          received_at?: string
+          user_id: string
+        }
+        Update: {
+          allocations?: Json
+          amount?: number
+          created_at?: string
+          id?: string
+          received_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

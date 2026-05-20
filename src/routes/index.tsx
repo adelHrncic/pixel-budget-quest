@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/")({
@@ -13,7 +13,19 @@ export const Route = createFileRoute("/")({
   }),
 });
 
+
 type PocketItem = { id: string; name: string; amount: number };
+type Allocations = { taxes: number; hysa: number; k401: number; roth: number; studentLoan: number; pocket: number };
+type Paycheck = { id: string; amount: number; received_at: string; allocations: Allocations };
+
+const ALLOC_KEYS: (keyof Allocations)[] = ["taxes", "hysa", "k401", "roth", "studentLoan", "pocket"];
+const ALLOC_LABELS: Record<keyof Allocations, string> = {
+  taxes: "Taxes", hysa: "HYSA", k401: "401(k)", roth: "Roth IRA", studentLoan: "Loans", pocket: "Pocket",
+};
+const ALLOC_COLORS: Record<keyof Allocations, string> = {
+  taxes: "var(--life)", hysa: "var(--mana)", k401: "var(--xp)",
+  roth: "var(--coin)", studentLoan: "var(--danger)", pocket: "var(--pocket)",
+};
 
 // Illinois flat income tax 2024: 4.95%
 const IL_RATE = 0.0495;
@@ -62,6 +74,9 @@ function Index() {
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string>("");
   const [loaded, setLoaded] = useState(false);
+  const [paychecks, setPaychecks] = useState<Paycheck[]>([]);
+  const [pcAmount, setPcAmount] = useState<number | "">("");
+  const [pcDate, setPcDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const nav = useNavigate();
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -97,6 +112,21 @@ function Index() {
         setStudentLoan(Number(row.student_loan));
         setPocket(Array.isArray(row.pocket) ? (row.pocket as PocketItem[]) : []);
       }
+      const { data: pcs } = await supabase
+        .from("paychecks")
+        .select("id, amount, received_at, allocations")
+        .eq("user_id", uid)
+        .order("received_at", { ascending: true });
+      if (pcs) {
+        setPaychecks(
+          pcs.map((p) => ({
+            id: p.id,
+            amount: Number(p.amount),
+            received_at: p.received_at as string,
+            allocations: p.allocations as Allocations,
+          }))
+        );
+      }
       setLoaded(true);
     });
     return () => sub.subscription.unsubscribe();
@@ -129,6 +159,83 @@ function Index() {
     await supabase.auth.signOut();
     nav({ to: "/login" });
   };
+
+  // Allocate a paycheck proportionally based on the yearly plan
+  const allocatePaycheck = (amount: number): Allocations => {
+    if (income <= 0 || amount <= 0) {
+      return { taxes: 0, hysa: 0, k401: 0, roth: 0, studentLoan: 0, pocket: 0 };
+    }
+    const r = amount / income;
+    return {
+      taxes: calc.taxes * r,
+      hysa: calc.hysa * r,
+      k401: calc.k401 * r,
+      roth: calc.roth * r,
+      studentLoan: studentLoan * r,
+      pocket: calc.pocketYr * r,
+    };
+  };
+
+  const addPaycheck = async () => {
+    if (!userId || !pcAmount || Number(pcAmount) <= 0) return;
+    const amt = Number(pcAmount);
+    const alloc = allocatePaycheck(amt);
+    const { data, error } = await supabase
+      .from("paychecks")
+      .insert({ user_id: userId, amount: amt, received_at: pcDate, allocations: alloc as never })
+      .select("id, amount, received_at, allocations")
+      .single();
+    if (error) {
+      console.error(error);
+      return;
+    }
+    setPaychecks((prev) =>
+      [...prev, {
+        id: data.id,
+        amount: Number(data.amount),
+        received_at: data.received_at as string,
+        allocations: data.allocations as Allocations,
+      }].sort((a, b) => a.received_at.localeCompare(b.received_at))
+    );
+    setPcAmount("");
+  };
+
+  const removePaycheck = async (id: string) => {
+    const { error } = await supabase.from("paychecks").delete().eq("id", id);
+    if (error) { console.error(error); return; }
+    setPaychecks((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  // Cumulative growth over time
+  const growthData = useMemo(() => {
+    const running: Allocations = { taxes: 0, hysa: 0, k401: 0, roth: 0, studentLoan: 0, pocket: 0 };
+    let total = 0;
+    return paychecks.map((p) => {
+      for (const k of ALLOC_KEYS) running[k] += p.allocations?.[k] ?? 0;
+      total += p.amount;
+      return {
+        date: p.received_at,
+        Total: Math.round(total),
+        Taxes: Math.round(running.taxes),
+        HYSA: Math.round(running.hysa),
+        "401(k)": Math.round(running.k401),
+        "Roth IRA": Math.round(running.roth),
+        Loans: Math.round(running.studentLoan),
+        Pocket: Math.round(running.pocket),
+      };
+    });
+  }, [paychecks]);
+
+  const totals = useMemo(() => {
+    const t: Allocations = { taxes: 0, hysa: 0, k401: 0, roth: 0, studentLoan: 0, pocket: 0 };
+    let sum = 0;
+    for (const p of paychecks) {
+      sum += p.amount;
+      for (const k of ALLOC_KEYS) t[k] += p.allocations?.[k] ?? 0;
+    }
+    return { sum, t };
+  }, [paychecks]);
+
 
   const calc = useMemo(() => {
     const hysa = income * (hysaPct / 100);
@@ -323,6 +430,125 @@ function Index() {
               {money(pocket.reduce((s, p) => s + p.amount, 0))} / mo · {money(calc.pocketYr)} / yr
             </span>
           </div>
+        </section>
+
+        {/* PAYCHECK LOG + GROWTH */}
+        <section className="pixel-box lg:col-span-2 scanlines">
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+            <h2 className="text-sm md:text-base text-accent">▶ QUEST LOG · PAYCHECKS</h2>
+            <span className="text-sm text-muted-foreground">
+              total earned: <span className="text-accent">{money(totals.sum)}</span>
+            </span>
+          </div>
+
+          {/* Add paycheck */}
+          <div className="pixel-box-sm grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+            <div>
+              <label className="label-pixel">Amount Earned</label>
+              <input
+                type="number"
+                className="pixel-input mt-1"
+                placeholder="$ this paycheck"
+                value={pcAmount}
+                onChange={(e) => setPcAmount(e.target.value === "" ? "" : Number(e.target.value))}
+              />
+            </div>
+            <div>
+              <label className="label-pixel">Date</label>
+              <input
+                type="date"
+                className="pixel-input mt-1"
+                value={pcDate}
+                onChange={(e) => setPcDate(e.target.value)}
+              />
+            </div>
+            <button className="pixel-btn coin" onClick={addPaycheck}>+ LOG IT</button>
+          </div>
+
+          {/* Preview */}
+          {pcAmount !== "" && Number(pcAmount) > 0 && (
+            <div className="mt-3 pixel-box-sm">
+              <div className="label-pixel mb-2">Preview Split</div>
+              <ul className="grid grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-1 text-base">
+                {(() => {
+                  const prev = allocatePaycheck(Number(pcAmount));
+                  return ALLOC_KEYS.map((k) => (
+                    <li key={k} className="flex justify-between gap-2">
+                      <span className="flex items-center gap-2">
+                        <span className="inline-block h-3 w-3 border-2 border-foreground" style={{ background: ALLOC_COLORS[k] }} />
+                        {ALLOC_LABELS[k]}
+                      </span>
+                      <span className="text-accent">{money(prev[k])}</span>
+                    </li>
+                  ));
+                })()}
+              </ul>
+            </div>
+          )}
+
+          {/* Growth chart */}
+          {growthData.length > 0 ? (
+            <div className="my-5 h-72">
+              <ResponsiveContainer>
+                <LineChart data={growthData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                  <CartesianGrid stroke="var(--border)" strokeDasharray="2 4" />
+                  <XAxis dataKey="date" stroke="var(--foreground)" tick={{ fontSize: 10, fontFamily: "var(--font-mono)" }} />
+                  <YAxis stroke="var(--foreground)" tick={{ fontSize: 10, fontFamily: "var(--font-mono)" }} tickFormatter={(v) => `$${v}`} />
+                  <Tooltip
+                    contentStyle={{ background: "var(--card)", border: "3px solid var(--border)", fontFamily: "var(--font-mono)", borderRadius: 0 }}
+                    formatter={(v) => money(Number(v))}
+                  />
+                  <Legend wrapperStyle={{ fontFamily: "var(--font-mono)", fontSize: 12 }} />
+                  <Line type="monotone" dataKey="Total" stroke="var(--accent)" strokeWidth={3} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="Taxes" stroke="var(--life)" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="HYSA" stroke="var(--mana)" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="401(k)" stroke="var(--xp)" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="Roth IRA" stroke="var(--coin)" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="Loans" stroke="var(--danger)" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="Pocket" stroke="var(--pocket)" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="my-5 pixel-box-sm text-center text-muted-foreground">
+              ~ no paychecks logged yet · log one to start the growth chart ~
+            </div>
+          )}
+
+          {/* Running totals */}
+          {paychecks.length > 0 && (
+            <div className="pixel-box-sm">
+              <div className="label-pixel mb-2">Running Totals</div>
+              <ul className="grid grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-1 text-base">
+                {ALLOC_KEYS.map((k) => (
+                  <li key={k} className="flex justify-between gap-2">
+                    <span className="flex items-center gap-2">
+                      <span className="inline-block h-3 w-3 border-2 border-foreground" style={{ background: ALLOC_COLORS[k] }} />
+                      {ALLOC_LABELS[k]}
+                    </span>
+                    <span className="text-accent">{money(totals.t[k])}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* History */}
+          {paychecks.length > 0 && (
+            <div className="mt-4 pixel-box-sm">
+              <div className="label-pixel mb-2">History</div>
+              <ul className="space-y-1 max-h-56 overflow-auto text-sm">
+                {[...paychecks].reverse().map((p) => (
+                  <li key={p.id} className="flex items-center justify-between gap-2 border-b border-dashed border-border pb-1">
+                    <span>
+                      <span className="text-accent">{p.received_at}</span> · {money(p.amount)}
+                    </span>
+                    <button className="pixel-btn danger !p-1 !text-[0.55rem]" onClick={() => removePaycheck(p.id)}>X</button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </section>
       </div>
 
