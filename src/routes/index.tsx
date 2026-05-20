@@ -431,6 +431,125 @@ function Index() {
             </span>
           </div>
         </section>
+
+        {/* PAYCHECK LOG + GROWTH */}
+        <section className="pixel-box lg:col-span-2 scanlines">
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+            <h2 className="text-sm md:text-base text-accent">▶ QUEST LOG · PAYCHECKS</h2>
+            <span className="text-sm text-muted-foreground">
+              total earned: <span className="text-accent">{money(totals.sum)}</span>
+            </span>
+          </div>
+
+          {/* Add paycheck */}
+          <div className="pixel-box-sm grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+            <div>
+              <label className="label-pixel">Amount Earned</label>
+              <input
+                type="number"
+                className="pixel-input mt-1"
+                placeholder="$ this paycheck"
+                value={pcAmount}
+                onChange={(e) => setPcAmount(e.target.value === "" ? "" : Number(e.target.value))}
+              />
+            </div>
+            <div>
+              <label className="label-pixel">Date</label>
+              <input
+                type="date"
+                className="pixel-input mt-1"
+                value={pcDate}
+                onChange={(e) => setPcDate(e.target.value)}
+              />
+            </div>
+            <button className="pixel-btn coin" onClick={addPaycheck}>+ LOG IT</button>
+          </div>
+
+          {/* Preview */}
+          {pcAmount !== "" && Number(pcAmount) > 0 && (
+            <div className="mt-3 pixel-box-sm">
+              <div className="label-pixel mb-2">Preview Split</div>
+              <ul className="grid grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-1 text-base">
+                {(() => {
+                  const prev = allocatePaycheck(Number(pcAmount));
+                  return ALLOC_KEYS.map((k) => (
+                    <li key={k} className="flex justify-between gap-2">
+                      <span className="flex items-center gap-2">
+                        <span className="inline-block h-3 w-3 border-2 border-foreground" style={{ background: ALLOC_COLORS[k] }} />
+                        {ALLOC_LABELS[k]}
+                      </span>
+                      <span className="text-accent">{money(prev[k])}</span>
+                    </li>
+                  ));
+                })()}
+              </ul>
+            </div>
+          )}
+
+          {/* Growth chart */}
+          {growthData.length > 0 ? (
+            <div className="my-5 h-72">
+              <ResponsiveContainer>
+                <LineChart data={growthData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                  <CartesianGrid stroke="var(--border)" strokeDasharray="2 4" />
+                  <XAxis dataKey="date" stroke="var(--foreground)" tick={{ fontSize: 10, fontFamily: "var(--font-mono)" }} />
+                  <YAxis stroke="var(--foreground)" tick={{ fontSize: 10, fontFamily: "var(--font-mono)" }} tickFormatter={(v) => `$${v}`} />
+                  <Tooltip
+                    contentStyle={{ background: "var(--card)", border: "3px solid var(--border)", fontFamily: "var(--font-mono)", borderRadius: 0 }}
+                    formatter={(v) => money(Number(v))}
+                  />
+                  <Legend wrapperStyle={{ fontFamily: "var(--font-mono)", fontSize: 12 }} />
+                  <Line type="monotone" dataKey="Total" stroke="var(--accent)" strokeWidth={3} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="Taxes" stroke="var(--life)" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="HYSA" stroke="var(--mana)" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="401(k)" stroke="var(--xp)" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="Roth IRA" stroke="var(--coin)" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="Loans" stroke="var(--danger)" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="Pocket" stroke="var(--pocket)" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="my-5 pixel-box-sm text-center text-muted-foreground">
+              ~ no paychecks logged yet · log one to start the growth chart ~
+            </div>
+          )}
+
+          {/* Running totals */}
+          {paychecks.length > 0 && (
+            <div className="pixel-box-sm">
+              <div className="label-pixel mb-2">Running Totals</div>
+              <ul className="grid grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-1 text-base">
+                {ALLOC_KEYS.map((k) => (
+                  <li key={k} className="flex justify-between gap-2">
+                    <span className="flex items-center gap-2">
+                      <span className="inline-block h-3 w-3 border-2 border-foreground" style={{ background: ALLOC_COLORS[k] }} />
+                      {ALLOC_LABELS[k]}
+                    </span>
+                    <span className="text-accent">{money(totals.t[k])}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* History */}
+          {paychecks.length > 0 && (
+            <div className="mt-4 pixel-box-sm">
+              <div className="label-pixel mb-2">History</div>
+              <ul className="space-y-1 max-h-56 overflow-auto text-sm">
+                {[...paychecks].reverse().map((p) => (
+                  <li key={p.id} className="flex items-center justify-between gap-2 border-b border-dashed border-border pb-1">
+                    <span>
+                      <span className="text-accent">{p.received_at}</span> · {money(p.amount)}
+                    </span>
+                    <button className="pixel-btn danger !p-1 !text-[0.55rem]" onClick={() => removePaycheck(p.id)}>X</button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
       </div>
 
       <footer className="mx-auto mt-10 max-w-6xl text-center text-sm text-muted-foreground">
