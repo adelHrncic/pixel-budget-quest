@@ -112,6 +112,21 @@ function Index() {
         setStudentLoan(Number(row.student_loan));
         setPocket(Array.isArray(row.pocket) ? (row.pocket as PocketItem[]) : []);
       }
+      const { data: pcs } = await supabase
+        .from("paychecks")
+        .select("id, amount, received_at, allocations")
+        .eq("user_id", uid)
+        .order("received_at", { ascending: true });
+      if (pcs) {
+        setPaychecks(
+          pcs.map((p) => ({
+            id: p.id,
+            amount: Number(p.amount),
+            received_at: p.received_at as string,
+            allocations: p.allocations as Allocations,
+          }))
+        );
+      }
       setLoaded(true);
     });
     return () => sub.subscription.unsubscribe();
