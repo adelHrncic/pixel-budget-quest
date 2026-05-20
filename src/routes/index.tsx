@@ -59,6 +59,76 @@ function Index() {
   const [newName, setNewName] = useState("");
   const [newAmt, setNewAmt] = useState<number | "">("");
   const [view, setView] = useState<"monthly" | "yearly">("monthly");
+  const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string>("");
+  const [loaded, setLoaded] = useState(false);
+  const nav = useNavigate();
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Auth gate + initial load
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      if (!session) {
+        setUserId(null);
+        nav({ to: "/login" });
+      } else {
+        setUserId(session.user.id);
+        setUserEmail(session.user.email ?? "");
+      }
+    });
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session) {
+        nav({ to: "/login" });
+        return;
+      }
+      const uid = data.session.user.id;
+      setUserId(uid);
+      setUserEmail(data.session.user.email ?? "");
+      const { data: row } = await supabase
+        .from("budgets")
+        .select("*")
+        .eq("user_id", uid)
+        .maybeSingle();
+      if (row) {
+        setIncome(Number(row.income));
+        setHysaPct(Number(row.hysa_pct));
+        setK401Pct(Number(row.k401_pct));
+        setRothPct(Number(row.roth_pct));
+        setStudentLoan(Number(row.student_loan));
+        setPocket(Array.isArray(row.pocket) ? (row.pocket as PocketItem[]) : []);
+      }
+      setLoaded(true);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, [nav]);
+
+  // Debounced save
+  useEffect(() => {
+    if (!loaded || !userId) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      supabase.from("budgets").upsert({
+        user_id: userId,
+        income,
+        hysa_pct: hysaPct,
+        k401_pct: k401Pct,
+        roth_pct: rothPct,
+        student_loan: studentLoan,
+        pocket: pocket as never,
+        updated_at: new Date().toISOString(),
+      }).then(({ error }) => {
+        if (error) console.error("save error", error);
+      });
+    }, 600);
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, [loaded, userId, income, hysaPct, k401Pct, rothPct, studentLoan, pocket]);
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    nav({ to: "/login" });
+  };
 
   const calc = useMemo(() => {
     const hysa = income * (hysaPct / 100);
