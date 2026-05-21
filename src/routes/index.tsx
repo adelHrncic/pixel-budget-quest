@@ -277,12 +277,12 @@ function OverviewTab({ calc, pocket, income, onJump }: {
     { name: "401(k)", value: calc.k401, color: "var(--xp)" },
     { name: "Roth IRA", value: calc.roth, color: "var(--coin)" },
     { name: "Student Loans", value: calc.studentLoan, color: "var(--danger)" },
-    { name: "Pocket", value: calc.pocketYr, color: "var(--pocket)" },
     ...pocket.map((p, i) => ({
       name: p.name, value: p.amount * 12,
       color: POCKET_COLORS[i % POCKET_COLORS.length],
     })),
   ].filter((d) => d.value > 0);
+
 
   return (
     <section className="pixel-box scanlines">
