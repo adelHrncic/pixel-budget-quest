@@ -244,7 +244,7 @@ function Index() {
             calc={calc}
           />
         ) : tab === "pocket" ? (
-          <PocketTab pocket={pocket} setPocket={setPocket} pocketYr={calc.pocketYr} />
+          <PocketTab pocket={pocket} setPocket={setPocket} pocketYr={calc.pocketYr} pocketLeftYr={calc.remaining} />
         ) : tab === "paychecks" ? (
           <PaychecksTab
             paychecks={paychecks} setPaychecks={setPaychecks}
@@ -277,7 +277,8 @@ function OverviewTab({ calc, pocket, income, onJump }: {
     { name: "401(k)", value: calc.k401, color: "var(--xp)" },
     { name: "Roth IRA", value: calc.roth, color: "var(--coin)" },
     { name: "Student Loans", value: calc.studentLoan, color: "var(--danger)" },
-    { name: "Pocket", value: calc.pocketYr, color: "var(--pocket)" },
+    { name: "Planned Pocket", value: calc.pocketYr, color: "var(--pocket)" },
+    { name: "Pocket Money Left", value: Math.max(0, calc.remaining), color: "var(--accent)" },
   ].filter((d) => d.value > 0);
 
 
@@ -322,7 +323,7 @@ function OverviewTab({ calc, pocket, income, onJump }: {
       <div className="mt-4 pixel-box-sm">
         <Row label={`Income (${view})`} v={fmt(income)} />
         <Row label="Allocated" v={fmt(calc.allocated)} />
-        <Row label="Unspent" v={fmt(calc.remaining)} bold
+        <Row label="Pocket Money Left" v={fmt(calc.remaining)} bold
           className={calc.remaining < 0 ? "text-destructive" : "text-primary"} />
       </div>
 
@@ -382,7 +383,7 @@ function IncomeTab({ income, setIncome, hysaPct, setHysaPct, k401Pct, setK401Pct
 }
 
 /* ---------------- POCKET ---------------- */
-function PocketTab({ pocket, setPocket, pocketYr }: { pocket: PocketItem[]; setPocket: (p: PocketItem[]) => void; pocketYr: number }) {
+function PocketTab({ pocket, setPocket, pocketYr, pocketLeftYr }: { pocket: PocketItem[]; setPocket: (p: PocketItem[]) => void; pocketYr: number; pocketLeftYr: number }) {
   const [newName, setNewName] = useState("");
   const [newAmt, setNewAmt] = useState<number | "">("");
 
@@ -431,6 +432,13 @@ function PocketTab({ pocket, setPocket, pocketYr }: { pocket: PocketItem[]; setP
         <span className="label-pixel">Pocket Total</span>
         <span className="text-xl text-accent">
           {money(pocket.reduce((s, p) => s + p.amount, 0))} / mo · {money(pocketYr)} / yr
+        </span>
+      </div>
+
+      <div className="mt-3 pixel-box-sm flex flex-wrap items-center justify-between gap-3">
+        <span className="label-pixel">Pocket Money You Can Allocate</span>
+        <span className={pocketLeftYr < 0 ? "text-xl text-destructive" : "text-xl text-primary"}>
+          {money(pocketLeftYr / 12)} / mo · {money(pocketLeftYr)} / yr
         </span>
       </div>
     </section>
