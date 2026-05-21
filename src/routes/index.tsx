@@ -383,7 +383,7 @@ function IncomeTab({ income, setIncome, hysaPct, setHysaPct, k401Pct, setK401Pct
 }
 
 /* ---------------- POCKET ---------------- */
-function PocketTab({ pocket, setPocket, pocketYr }: { pocket: PocketItem[]; setPocket: (p: PocketItem[]) => void; pocketYr: number }) {
+function PocketTab({ pocket, setPocket, pocketYr, pocketLeftYr }: { pocket: PocketItem[]; setPocket: (p: PocketItem[]) => void; pocketYr: number; pocketLeftYr: number }) {
   const [newName, setNewName] = useState("");
   const [newAmt, setNewAmt] = useState<number | "">("");
 
@@ -432,6 +432,13 @@ function PocketTab({ pocket, setPocket, pocketYr }: { pocket: PocketItem[]; setP
         <span className="label-pixel">Pocket Total</span>
         <span className="text-xl text-accent">
           {money(pocket.reduce((s, p) => s + p.amount, 0))} / mo · {money(pocketYr)} / yr
+        </span>
+      </div>
+
+      <div className="mt-3 pixel-box-sm flex flex-wrap items-center justify-between gap-3">
+        <span className="label-pixel">Pocket Money You Can Allocate</span>
+        <span className={pocketLeftYr < 0 ? "text-xl text-destructive" : "text-xl text-primary"}>
+          {money(pocketLeftYr / 12)} / mo · {money(pocketLeftYr)} / yr
         </span>
       </div>
     </section>
