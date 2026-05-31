@@ -414,7 +414,7 @@ function PocketTab({ pocket, setPocket, pocketYr, pocketLeftYr }: { pocket: Pock
                 onChange={(e) => upd(p.id, Number(e.target.value) || 0)} />
             </div>
             <div className="mt-1 text-sm text-muted-foreground">
-              = {money(p.amount * 12)} / yr
+              = {money(p.amount * 12 / 52)} / wk · {money(p.amount * 12)} / yr
             </div>
           </div>
         ))}
