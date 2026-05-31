@@ -288,6 +288,7 @@ function OverviewTab({ calc, pocket, income, onJump }: {
       <div className="flex items-center justify-between">
         <h2 className="text-sm md:text-base text-accent">▶ STATUS MAP</h2>
         <div className="flex gap-2">
+          <button className={`pixel-btn ${view === "weekly" ? "coin" : ""}`} onClick={() => setView("weekly")}>WK</button>
           <button className={`pixel-btn ${view === "monthly" ? "coin" : ""}`} onClick={() => setView("monthly")}>MO</button>
           <button className={`pixel-btn ${view === "yearly" ? "coin" : ""}`} onClick={() => setView("yearly")}>YR</button>
         </div>
