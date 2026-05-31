@@ -267,8 +267,8 @@ function OverviewTab({ calc, pocket, income, onJump }: {
   calc: ReturnType<typeof useMemo> extends infer T ? any : any;
   pocket: PocketItem[]; income: number; onJump: (t: Tab) => void;
 }) {
-  const [view, setView] = useState<"monthly" | "yearly">("monthly");
-  const divisor = view === "monthly" ? 12 : 1;
+  const [view, setView] = useState<"weekly" | "monthly" | "yearly">("monthly");
+  const divisor = view === "weekly" ? 52 : view === "monthly" ? 12 : 1;
   const fmt = (n: number) => money(n / divisor);
 
   const chartData = [
@@ -288,6 +288,7 @@ function OverviewTab({ calc, pocket, income, onJump }: {
       <div className="flex items-center justify-between">
         <h2 className="text-sm md:text-base text-accent">▶ STATUS MAP</h2>
         <div className="flex gap-2">
+          <button className={`pixel-btn ${view === "weekly" ? "coin" : ""}`} onClick={() => setView("weekly")}>WK</button>
           <button className={`pixel-btn ${view === "monthly" ? "coin" : ""}`} onClick={() => setView("monthly")}>MO</button>
           <button className={`pixel-btn ${view === "yearly" ? "coin" : ""}`} onClick={() => setView("yearly")}>YR</button>
         </div>
@@ -413,7 +414,7 @@ function PocketTab({ pocket, setPocket, pocketYr, pocketLeftYr }: { pocket: Pock
                 onChange={(e) => upd(p.id, Number(e.target.value) || 0)} />
             </div>
             <div className="mt-1 text-sm text-muted-foreground">
-              = {money(p.amount * 12)} / yr
+              = {money(p.amount * 12 / 52)} / wk · {money(p.amount * 12)} / yr
             </div>
           </div>
         ))}
@@ -431,14 +432,14 @@ function PocketTab({ pocket, setPocket, pocketYr, pocketLeftYr }: { pocket: Pock
       <div className="mt-5 pixel-box-sm flex flex-wrap items-center justify-between gap-3">
         <span className="label-pixel">Pocket Total</span>
         <span className="text-xl text-accent">
-          {money(pocket.reduce((s, p) => s + p.amount, 0))} / mo · {money(pocketYr)} / yr
+          {money(pocketYr / 52)} / wk · {money(pocket.reduce((s, p) => s + p.amount, 0))} / mo · {money(pocketYr)} / yr
         </span>
       </div>
 
       <div className="mt-3 pixel-box-sm flex flex-wrap items-center justify-between gap-3">
         <span className="label-pixel">Pocket Money You Can Allocate</span>
         <span className={pocketLeftYr < 0 ? "text-xl text-destructive" : "text-xl text-primary"}>
-          {money(pocketLeftYr / 12)} / mo · {money(pocketLeftYr)} / yr
+          {money(pocketLeftYr / 52)} / wk · {money(pocketLeftYr / 12)} / mo · {money(pocketLeftYr)} / yr
         </span>
       </div>
     </section>
