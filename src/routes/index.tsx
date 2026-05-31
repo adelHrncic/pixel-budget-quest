@@ -267,8 +267,8 @@ function OverviewTab({ calc, pocket, income, onJump }: {
   calc: ReturnType<typeof useMemo> extends infer T ? any : any;
   pocket: PocketItem[]; income: number; onJump: (t: Tab) => void;
 }) {
-  const [view, setView] = useState<"monthly" | "yearly">("monthly");
-  const divisor = view === "monthly" ? 12 : 1;
+  const [view, setView] = useState<"weekly" | "monthly" | "yearly">("monthly");
+  const divisor = view === "weekly" ? 52 : view === "monthly" ? 12 : 1;
   const fmt = (n: number) => money(n / divisor);
 
   const chartData = [
