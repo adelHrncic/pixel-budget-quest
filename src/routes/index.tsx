@@ -152,7 +152,7 @@ function Index() {
     const il = Math.max(0, income - k401) * IL_RATE;
     const ss = Math.min(income, 168600) * 0.062;
     const medicare = income * 0.0145;
-    const taxes = fed + il + ss + medicare;
+    const taxes = income * 0.199;
     const pocketYr = pocket.reduce((s, p) => s + p.amount, 0) * 12;
     const allocated = taxes + hysa + k401 + roth + studentLoan + pocketYr;
     const remaining = income - allocated;
