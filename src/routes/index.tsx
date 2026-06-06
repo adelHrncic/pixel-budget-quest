@@ -153,7 +153,7 @@ function Index() {
     const ss = Math.min(income, 168600) * 0.062;
     const medicare = income * 0.0145;
     const taxes = income * 0.199;
-    const pocketYr = pocket.reduce((s, p) => s + p.amount, 0) * 12;
+    const pocketYr = pocket.reduce((s, p) => s + (p.recurring !== false ? p.amount * 12 : p.amount), 0);
     const allocated = taxes + hysa + k401 + roth + studentLoan + pocketYr;
     const remaining = income - allocated;
     return { hysa, k401, roth, taxes, fed, il, ss, medicare, pocketYr, allocated, remaining, studentLoan };
