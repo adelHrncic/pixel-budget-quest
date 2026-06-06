@@ -401,24 +401,38 @@ function PocketTab({ pocket, setPocket, pocketYr, pocketLeftYr }: { pocket: Pock
 
   const add = () => {
     if (!newName || !newAmt) return;
-    setPocket([...pocket, { id: Date.now().toString(), name: newName, amount: Number(newAmt), recurring: newRecurring }]);
+    setPocket([...pocket, {
+      id: Date.now().toString(),
+      name: newName,
+      amount: Number(newAmt),
+      recurring: newRecurring,
+      month: newRecurring ? undefined : currentMonthKey(),
+    }]);
     setNewName(""); setNewAmt(""); setNewRecurring(true);
   };
   const upd = (id: string, amount: number) =>
     setPocket(pocket.map((p) => p.id === id ? { ...p, amount } : p));
   const toggleRecurring = (id: string) =>
-    setPocket(pocket.map((p) => p.id === id ? { ...p, recurring: p.recurring === false ? true : false } : p));
+    setPocket(pocket.map((p) => {
+      if (p.id !== id) return p;
+      const nextRecurring = p.recurring === false ? true : false;
+      return { ...p, recurring: nextRecurring, month: nextRecurring ? undefined : (p.month ?? currentMonthKey()) };
+    }));
   const rm = (id: string) => setPocket(pocket.filter((p) => p.id !== id));
 
   const isRecurring = (p: PocketItem) => p.recurring !== false;
+  const thisMonth = currentMonthKey();
 
   return (
     <section className="pixel-box">
-      <h2 className="text-sm md:text-base text-accent mb-4">▶ POCKET MONEY INVENTORY</h2>
+      <h2 className="text-sm md:text-base text-accent mb-4">▶ POCKET MONEY INVENTORY — {formatMonthKey(thisMonth)}</h2>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {pocket.map((p) => (
-          <div key={p.id} className="pixel-box-sm float-up">
+        {pocket.map((p) => {
+          const itemMonth = p.month ?? thisMonth;
+          const isThisMonth = isRecurring(p) || itemMonth === thisMonth;
+          return (
+          <div key={p.id} className="pixel-box-sm float-up" style={{ opacity: isThisMonth ? 1 : 0.55 }}>
             <div className="flex items-center justify-between gap-2">
               <span className="truncate text-lg" style={{ color: "var(--pocket)" }}>● {p.name}</span>
               <button className="pixel-btn danger !p-1 !text-[0.55rem]" onClick={() => rm(p.id)}>X</button>
@@ -432,15 +446,16 @@ function PocketTab({ pocket, setPocket, pocketYr, pocketLeftYr }: { pocket: Pock
               className={`mt-2 text-[0.55rem] px-2 py-1 border-2 border-foreground cursor-pointer ${isRecurring(p) ? "bg-primary text-primary-foreground" : "bg-destructive text-destructive-foreground"}`}
               onClick={() => toggleRecurring(p.id)}
             >
-              {isRecurring(p) ? "⟲ RECURRING" : "✕ ONE-TIME"}
+              {isRecurring(p) ? "⟲ RECURRING" : `✕ ONE-TIME · ${formatMonthKey(itemMonth)}`}
             </button>
             <div className="mt-1 text-sm text-muted-foreground">
               {isRecurring(p)
                 ? `= ${money(p.amount * 12 / 52)} / wk · ${money(p.amount * 12)} / yr`
-                : `= ${money(p.amount)} total (one-time)`}
+                : `= ${money(p.amount)} total · ${isThisMonth ? "this month" : "past month"}`}
             </div>
           </div>
-        ))}
+          );
+        })}
 
         <div className="pixel-box-sm border-dashed">
           <div className="label-pixel mb-2">+ Add Item</div>
