@@ -13,7 +13,7 @@ export const Route = createFileRoute("/")({
   }),
 });
 
-type PocketItem = { id: string; name: string; amount: number };
+type PocketItem = { id: string; name: string; amount: number; recurring?: boolean };
 type Allocations = { taxes: number; hysa: number; k401: number; roth: number; studentLoan: number; pocket: number };
 type Paycheck = { id: string; amount: number; received_at: string; allocations: Allocations };
 type Goal = { id: string; name: string; target_amount: number; current_amount: number; deadline: string | null };
@@ -153,7 +153,7 @@ function Index() {
     const ss = Math.min(income, 168600) * 0.062;
     const medicare = income * 0.0145;
     const taxes = income * 0.199;
-    const pocketYr = pocket.reduce((s, p) => s + p.amount, 0) * 12;
+    const pocketYr = pocket.reduce((s, p) => s + (p.recurring !== false ? p.amount * 12 : p.amount), 0);
     const allocated = taxes + hysa + k401 + roth + studentLoan + pocketYr;
     const remaining = income - allocated;
     return { hysa, k401, roth, taxes, fed, il, ss, medicare, pocketYr, allocated, remaining, studentLoan };
@@ -387,15 +387,20 @@ function IncomeTab({ income, setIncome, hysaPct, setHysaPct, k401Pct, setK401Pct
 function PocketTab({ pocket, setPocket, pocketYr, pocketLeftYr }: { pocket: PocketItem[]; setPocket: (p: PocketItem[]) => void; pocketYr: number; pocketLeftYr: number }) {
   const [newName, setNewName] = useState("");
   const [newAmt, setNewAmt] = useState<number | "">("");
+  const [newRecurring, setNewRecurring] = useState(true);
 
   const add = () => {
     if (!newName || !newAmt) return;
-    setPocket([...pocket, { id: Date.now().toString(), name: newName, amount: Number(newAmt) }]);
-    setNewName(""); setNewAmt("");
+    setPocket([...pocket, { id: Date.now().toString(), name: newName, amount: Number(newAmt), recurring: newRecurring }]);
+    setNewName(""); setNewAmt(""); setNewRecurring(true);
   };
   const upd = (id: string, amount: number) =>
     setPocket(pocket.map((p) => p.id === id ? { ...p, amount } : p));
+  const toggleRecurring = (id: string) =>
+    setPocket(pocket.map((p) => p.id === id ? { ...p, recurring: p.recurring === false ? true : false } : p));
   const rm = (id: string) => setPocket(pocket.filter((p) => p.id !== id));
+
+  const isRecurring = (p: PocketItem) => p.recurring !== false;
 
   return (
     <section className="pixel-box">
@@ -413,8 +418,16 @@ function PocketTab({ pocket, setPocket, pocketYr, pocketLeftYr }: { pocket: Pock
               <input type="number" className="pixel-input" value={p.amount}
                 onChange={(e) => upd(p.id, Number(e.target.value) || 0)} />
             </div>
+            <button
+              className={`mt-2 text-[0.55rem] px-2 py-1 border-2 border-foreground cursor-pointer ${isRecurring(p) ? "bg-primary text-primary-foreground" : "bg-destructive text-destructive-foreground"}`}
+              onClick={() => toggleRecurring(p.id)}
+            >
+              {isRecurring(p) ? "⟲ RECURRING" : "✕ ONE-TIME"}
+            </button>
             <div className="mt-1 text-sm text-muted-foreground">
-              = {money(p.amount * 12 / 52)} / wk · {money(p.amount * 12)} / yr
+              {isRecurring(p)
+                ? `= ${money(p.amount * 12 / 52)} / wk · ${money(p.amount * 12)} / yr`
+                : `= ${money(p.amount)} total (one-time)`}
             </div>
           </div>
         ))}
@@ -425,6 +438,12 @@ function PocketTab({ pocket, setPocket, pocketYr, pocketLeftYr }: { pocket: Pock
             onChange={(e) => setNewName(e.target.value)} maxLength={30} />
           <input className="pixel-input mb-2" type="number" placeholder="$/month"
             value={newAmt} onChange={(e) => setNewAmt(e.target.value === "" ? "" : Number(e.target.value))} />
+          <button
+            className={`mb-2 text-[0.55rem] px-2 py-1 border-2 border-foreground cursor-pointer w-full ${newRecurring ? "bg-primary text-primary-foreground" : "bg-destructive text-destructive-foreground"}`}
+            onClick={() => setNewRecurring(!newRecurring)}
+          >
+            {newRecurring ? "⟲ RECURRING" : "✕ ONE-TIME"}
+          </button>
           <button className="pixel-btn w-full" onClick={add}>ADD</button>
         </div>
       </div>
