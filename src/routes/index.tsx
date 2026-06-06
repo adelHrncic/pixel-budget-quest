@@ -204,6 +204,7 @@ function Index() {
           BUDGET QUEST
         </h1>
         <p className="mt-2 text-muted-foreground">~ press start to manage your gold ~ <span className="blink">_</span></p>
+        <div className="mt-2 label-pixel text-accent">▣ {formatMonthKey(currentMonthKey())} ▣</div>
         {userId && (
           <div className="mt-3 flex items-center justify-center gap-3 flex-wrap text-sm">
             <span className="text-accent truncate max-w-[200px]">● {userEmail}</span>
