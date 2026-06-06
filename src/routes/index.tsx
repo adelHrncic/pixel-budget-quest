@@ -43,6 +43,15 @@ function federalTax(income: number, pretax: number) {
 }
 const money = (n: number) =>
   "$" + n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+const MONTH_NAMES = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+const currentMonthKey = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
+const formatMonthKey = (k: string) => {
+  const [y, m] = k.split("-");
+  return `${MONTH_NAMES[Number(m) - 1] ?? "?"} ${y}`;
+};
 
 type Tab = "overview" | "income" | "pocket" | "paychecks" | "goals";
 const TABS: { id: Tab; label: string; icon: string }[] = [
