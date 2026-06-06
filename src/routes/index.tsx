@@ -42,7 +42,7 @@ function federalTax(income: number, pretax: number) {
   return Math.max(0, tax);
 }
 const money = (n: number) =>
-  "$" + n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+  "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const MONTH_NAMES = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
 const currentMonthKey = () => {
   const d = new Date();
