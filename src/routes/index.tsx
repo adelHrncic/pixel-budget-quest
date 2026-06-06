@@ -13,7 +13,7 @@ export const Route = createFileRoute("/")({
   }),
 });
 
-type PocketItem = { id: string; name: string; amount: number; recurring?: boolean };
+type PocketItem = { id: string; name: string; amount: number; recurring?: boolean; month?: string };
 type Allocations = { taxes: number; hysa: number; k401: number; roth: number; studentLoan: number; pocket: number };
 type Paycheck = { id: string; amount: number; received_at: string; allocations: Allocations };
 type Goal = { id: string; name: string; target_amount: number; current_amount: number; deadline: string | null };
