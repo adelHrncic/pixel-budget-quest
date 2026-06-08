@@ -57,18 +57,34 @@ function Index() {
   ]);
   const [newName, setNewName] = useState("");
   const [newAmt, setNewAmt] = useState<number | "">("");
-  const [view, setView] = useState<"monthly" | "yearly">("monthly");
+  const [view, setView] = useState<"monthly" | "yearly">("monthly");  const [startDate, setStartDate] = useState("2026-06-08"); // Pay starts on 6/8/2026 (Wednesday)
 
+  // Calculate next payday (every Wednesday)
+  const getNextPayday = (from: Date = new Date()) => {
+    const date = new Date(from);
+    const day = date.getDay();
+    const daysUntilWednesday = (3 - day + 7) % 7 || 7; // 3 = Wednesday
+    date.setDate(date.getDate() + daysUntilWednesday);
+    return date;
+  };
+
+  const nextPayday = getNextPayday();
+  const daysUntilPaycheck = Math.ceil((nextPayday.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
   const calc = useMemo(() => {
-    const hysa = income * (hysaPct / 100);
     const k401 = income * (k401Pct / 100);
-    const roth = income * (rothPct / 100);
     // Traditional 401(k) reduces taxable income; Roth does not
     const fed = federalTax(income, k401);
     const il = Math.max(0, income - k401) * IL_RATE;
     const ss = Math.min(income, 168600) * 0.062;
     const medicare = income * 0.0145;
     const taxes = fed + il + ss + medicare;
+    
+    // Net income = gross - taxes - pre-tax contributions
+    const netIncome = income - taxes - k401;
+    
+    // Post-tax allocations from NET income only
+    const hysa = netIncome * (hysaPct / 100);
+    const roth = netIncome * (rothPct / 100);
     const pocketYr = pocket.reduce((s, p) => s + p.amount, 0) * 12;
     const allocated = taxes + hysa + k401 + roth + studentLoan + pocketYr;
     const remaining = income - allocated;
@@ -88,7 +104,7 @@ function Index() {
   ];
 
   const chartData = [
-    { name: "Taxes", value: calc.taxes, color: "var(--life)" },
+    { name: "Taxes", value: calc.taxes, color: "#ef4444" }, // Red for taxes
     { name: "HYSA", value: calc.hysa, color: "var(--mana)" },
     { name: "401(k)", value: calc.k401, color: "var(--xp)" },
     { name: "Roth IRA", value: calc.roth, color: "var(--coin)" },
@@ -118,6 +134,12 @@ function Index() {
           BUDGET QUEST
         </h1>
         <p className="mt-2 text-muted-foreground">~ press start to manage your gold ~ <span className="blink">_</span></p>
+        <div className="mt-4 inline-block rounded-lg px-3 py-2" style={{
+          background: "linear-gradient(135deg, rgba(100,200,255,0.2) 0%, rgba(120,80,200,0.2) 100%)",
+          border: "2px solid var(--border)"
+        }}>
+          <div className="text-sm font-mono text-accent">💰 Payday: {nextPayday.toLocaleDateString()} ({daysUntilPaycheck}d)</div>
+        </div>
       </header>
 
       <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-2">
@@ -129,6 +151,15 @@ function Index() {
             <label className="label-pixel">Yearly Income</label>
             <input type="number" className="pixel-input mt-1" value={income}
               onChange={(e) => setIncome(Number(e.target.value) || 0)} />
+          </div>
+
+          <div>
+            <label className="label-pixel">Pay Starts (Wed)</label>
+            <input type="date" className="pixel-input mt-1" value={startDate}
+              onChange={(e) => setStartDate(e.target.value)} />
+            <div className="mt-2 text-sm text-accent">
+              💰 Next payday: {nextPayday.toLocaleDateString()} ({daysUntilPaycheck}d away)
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -168,15 +199,27 @@ function Index() {
             </div>
           </div>
 
-          <div className="my-4 h-64">
+          <div className="my-4 h-64 rounded-lg" style={{
+            background: "linear-gradient(135deg, rgba(120,80,200,0.1) 0%, rgba(100,60,180,0.05) 100%)",
+            padding: "1rem",
+            border: "3px solid var(--border)",
+            boxShadow: "inset 0 0 20px rgba(120,80,200,0.1), 0 8px 20px rgba(0,0,0,0.3)"
+          }}>
             <ResponsiveContainer>
               <PieChart>
                 <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%"
-                  outerRadius={100} innerRadius={45} stroke="#000" strokeWidth={3}>
+                  outerRadius={100} innerRadius={45} stroke="#000" strokeWidth={3}
+                  animationBegin={0} animationDuration={800} animationEasing="ease-out">
                   {chartData.map((d, i) => <Cell key={i} fill={d.color} />)}
                 </Pie>
                 <Tooltip
-                  contentStyle={{ background: "var(--card)", border: "3px solid var(--border)", fontFamily: "var(--font-mono)", borderRadius: 0 }}
+                  contentStyle={{
+                    background: "var(--card)",
+                    border: "3px solid var(--border)",
+                    fontFamily: "var(--font-mono)",
+                    borderRadius: "4px",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.3)"
+                  }}
                   formatter={(v) => fmt(Number(v))}
                 />
               </PieChart>

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmd /c \"set GITHUB_PAGES=true && npm run build 2>&1\")",
+      "PowerShell(cd \"c:\\\\Users\\\\Adel\\\\pixel-budget-quest\"; $env:GITHUB_PAGES = 'true'; npm run build 2>&1)",
+      "PowerShell(cd \"c:\\\\Users\\\\Adel\\\\pixel-budget-quest\"; $env:GITHUB_PAGES = 'true'; npx vite build 2>&1)",
+      "PowerShell(cd \"c:\\\\Users\\\\Adel\\\\pixel-budget-quest\"; $env:GITHUB_PAGES = 'true'; bun run build 2>&1)",
+      "Bash(npm --version)"
+    ]
+  }
+}
