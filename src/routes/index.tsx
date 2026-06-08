@@ -483,7 +483,7 @@ function PocketTab({ pocket, setPocket, pocketMo, pocketYr, pocketLeftMo, pocket
       <div className="mt-5 pixel-box-sm flex flex-wrap items-center justify-between gap-3">
         <span className="label-pixel">Pocket Total</span>
         <span className="text-xl text-accent">
-          {money(pocketYr / 52)} / wk · {money(pocket.reduce((s, p) => s + p.amount, 0))} / mo · {money(pocketYr)} / yr
+          {money(pocketMo * 12 / 52)} / wk · {money(pocketMo)} / mo · {money(pocketYr)} / yr
         </span>
       </div>
 
