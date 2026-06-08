@@ -345,7 +345,7 @@ function OverviewTab({ calc, pocket, income, onJump }: {
 
       <div className="mt-4 pixel-box-sm">
         <Row label={`Income (${view})`} v={fmt(income)} />
-        <Row label="Allocated" v={fmt(calc.allocated)} />
+        <Row label="Allocated" v={fmt(calc.allocated - calc.pocketYr + pocketDisplay)} />
         <Row label="Pocket Money Left" v={fmt(remainingDisplay)} bold
           className={remainingDisplay < 0 ? "text-destructive" : "text-primary"} />
       </div>
