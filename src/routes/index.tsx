@@ -344,9 +344,8 @@ function OverviewTab({ calc, pocket, income, onJump }: {
           className={remainingDisplay < 0 ? "text-destructive" : "text-primary"} />
       </div>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
         <button className="pixel-btn" onClick={() => onJump("income")}>$ EDIT INCOME</button>
-        <button className="pixel-btn" onClick={() => onJump("paychecks")}>▶ LOG PAYCHECK</button>
         <button className="pixel-btn coin" onClick={() => onJump("goals")}>★ MY GOALS</button>
       </div>
     </section>
