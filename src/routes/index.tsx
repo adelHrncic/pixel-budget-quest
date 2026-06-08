@@ -53,12 +53,11 @@ const formatMonthKey = (k: string) => {
   return `${MONTH_NAMES[Number(m) - 1] ?? "?"} ${y}`;
 };
 
-type Tab = "overview" | "income" | "pocket" | "paychecks" | "goals";
+type Tab = "overview" | "income" | "pocket" | "goals";
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "overview", label: "OVERVIEW", icon: "◆" },
   { id: "income", label: "INCOME", icon: "$" },
   { id: "pocket", label: "POCKET", icon: "▣" },
-  { id: "paychecks", label: "PAYCHECKS", icon: "▶" },
   { id: "goals", label: "GOALS", icon: "★" },
 ];
 
