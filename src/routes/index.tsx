@@ -261,11 +261,6 @@ function Index() {
           />
         ) : tab === "pocket" ? (
           <PocketTab pocket={pocket} setPocket={setPocket} pocketMo={calc.pocketMo} pocketYr={calc.pocketYr} pocketLeftMo={calc.remainingMo} pocketLeftYr={calc.remaining} />
-        ) : tab === "paychecks" ? (
-          <PaychecksTab
-            paychecks={paychecks} setPaychecks={setPaychecks}
-            userId={userId} allocatePaycheck={allocatePaycheck} totals={totals}
-          />
         ) : (
           <GoalsTab goals={goals} setGoals={setGoals} userId={userId} />
         )}
