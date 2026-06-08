@@ -284,13 +284,12 @@ function OverviewTab({ calc, pocket, income, onJump }: {
   const divisor = view === "weekly" ? 52 : view === "monthly" ? 12 : 1;
   const fmt = (n: number) => money(n / divisor);
 
-  // Pocket is a monthly figure (recurring + this-month one-times). For
-  // weekly/monthly views, scale it so fmt(value/divisor) shows the true
-  // monthly/weekly pocket value instead of (yearly/12).
+  // Budget is calculated on NET income (after tax). Pocket is a monthly
+  // figure (recurring + this-month one-times); scale to yearly so all pie
+  // slices share the same time basis before the fmt() divisor is applied.
   const pocketDisplay = view === "yearly" ? calc.pocketYr : calc.pocketMo * 12;
   const remainingDisplay = view === "yearly" ? calc.remaining : calc.remainingMo * 12;
   const chartData = [
-    { name: "Taxes", value: calc.taxes, color: "var(--life)" },
     { name: "HYSA", value: calc.hysa, color: "var(--mana)" },
     { name: "401(k)", value: calc.k401, color: "var(--xp)" },
     { name: "Roth IRA", value: calc.roth, color: "var(--coin)" },
@@ -299,7 +298,8 @@ function OverviewTab({ calc, pocket, income, onJump }: {
     { name: "Pocket Money Left", value: Math.max(0, remainingDisplay), color: "var(--accent)" },
   ].filter((d) => d.value > 0);
 
-
+  // Suppress unused-variable warning while keeping the prop for parity.
+  void income;
 
   return (
     <section className="pixel-box scanlines">
@@ -340,11 +340,13 @@ function OverviewTab({ calc, pocket, income, onJump }: {
       </ul>
 
       <div className="mt-4 pixel-box-sm">
-        <Row label={`Income (${view})`} v={fmt(income)} />
+        <Row label={`Net Income (${view})`} v={fmt(calc.net)} />
+        <Row label="Taxes withheld" v={fmt(calc.taxes)} />
         <Row label="Allocated" v={fmt(calc.allocated - calc.pocketYr + pocketDisplay)} />
         <Row label="Pocket Money Left" v={fmt(remainingDisplay)} bold
           className={remainingDisplay < 0 ? "text-destructive" : "text-primary"} />
       </div>
+
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
         <button className="pixel-btn" onClick={() => onJump("income")}>$ EDIT INCOME</button>
