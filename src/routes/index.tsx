@@ -53,12 +53,11 @@ const formatMonthKey = (k: string) => {
   return `${MONTH_NAMES[Number(m) - 1] ?? "?"} ${y}`;
 };
 
-type Tab = "overview" | "income" | "pocket" | "paychecks" | "goals";
+type Tab = "overview" | "income" | "pocket" | "goals";
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "overview", label: "OVERVIEW", icon: "◆" },
   { id: "income", label: "INCOME", icon: "$" },
   { id: "pocket", label: "POCKET", icon: "▣" },
-  { id: "paychecks", label: "PAYCHECKS", icon: "▶" },
   { id: "goals", label: "GOALS", icon: "★" },
 ];
 
@@ -162,18 +161,20 @@ function Index() {
     const ss = Math.min(income, 168600) * 0.062;
     const medicare = income * 0.0145;
     const taxes = income * 0.199;
+    const net = Math.max(0, income - taxes);
     const thisMonth = currentMonthKey();
     const pocketMo = pocket.reduce((s, p) => {
       if (p.recurring !== false) return s + p.amount;
       return (p.month ?? thisMonth) === thisMonth ? s + p.amount : s;
     }, 0);
     const pocketYr = pocket.reduce((s, p) => s + (p.recurring !== false ? p.amount * 12 : p.amount), 0);
-    const fixedYr = taxes + hysa + k401 + roth + studentLoan;
-    const allocated = fixedYr + pocketYr;
-    const remaining = income - allocated;
-    const remainingMo = income / 12 - fixedYr / 12 - pocketMo;
-    return { hysa, k401, roth, taxes, fed, il, ss, medicare, pocketMo, pocketYr, allocated, remaining, remainingMo, studentLoan };
+    const fixedYrNoTax = hysa + k401 + roth + studentLoan;
+    const allocated = fixedYrNoTax + pocketYr;
+    const remaining = net - allocated;
+    const remainingMo = net / 12 - fixedYrNoTax / 12 - pocketMo;
+    return { hysa, k401, roth, taxes, net, fed, il, ss, medicare, pocketMo, pocketYr, allocated, remaining, remainingMo, studentLoan };
   }, [income, hysaPct, k401Pct, rothPct, studentLoan, pocket]);
+
 
   const allocatePaycheck = (amount: number): Allocations => {
     if (income <= 0 || amount <= 0) return { taxes: 0, hysa: 0, k401: 0, roth: 0, studentLoan: 0, pocket: 0 };
@@ -262,11 +263,6 @@ function Index() {
           />
         ) : tab === "pocket" ? (
           <PocketTab pocket={pocket} setPocket={setPocket} pocketMo={calc.pocketMo} pocketYr={calc.pocketYr} pocketLeftMo={calc.remainingMo} pocketLeftYr={calc.remaining} />
-        ) : tab === "paychecks" ? (
-          <PaychecksTab
-            paychecks={paychecks} setPaychecks={setPaychecks}
-            userId={userId} allocatePaycheck={allocatePaycheck} totals={totals}
-          />
         ) : (
           <GoalsTab goals={goals} setGoals={setGoals} userId={userId} />
         )}
@@ -288,13 +284,12 @@ function OverviewTab({ calc, pocket, income, onJump }: {
   const divisor = view === "weekly" ? 52 : view === "monthly" ? 12 : 1;
   const fmt = (n: number) => money(n / divisor);
 
-  // Pocket is a monthly figure (recurring + this-month one-times). For
-  // weekly/monthly views, scale it so fmt(value/divisor) shows the true
-  // monthly/weekly pocket value instead of (yearly/12).
+  // Budget is calculated on NET income (after tax). Pocket is a monthly
+  // figure (recurring + this-month one-times); scale to yearly so all pie
+  // slices share the same time basis before the fmt() divisor is applied.
   const pocketDisplay = view === "yearly" ? calc.pocketYr : calc.pocketMo * 12;
   const remainingDisplay = view === "yearly" ? calc.remaining : calc.remainingMo * 12;
   const chartData = [
-    { name: "Taxes", value: calc.taxes, color: "var(--life)" },
     { name: "HYSA", value: calc.hysa, color: "var(--mana)" },
     { name: "401(k)", value: calc.k401, color: "var(--xp)" },
     { name: "Roth IRA", value: calc.roth, color: "var(--coin)" },
@@ -303,7 +298,8 @@ function OverviewTab({ calc, pocket, income, onJump }: {
     { name: "Pocket Money Left", value: Math.max(0, remainingDisplay), color: "var(--accent)" },
   ].filter((d) => d.value > 0);
 
-
+  // Suppress unused-variable warning while keeping the prop for parity.
+  void income;
 
   return (
     <section className="pixel-box scanlines">
@@ -344,15 +340,16 @@ function OverviewTab({ calc, pocket, income, onJump }: {
       </ul>
 
       <div className="mt-4 pixel-box-sm">
-        <Row label={`Income (${view})`} v={fmt(income)} />
+        <Row label={`Net Income (${view})`} v={fmt(calc.net)} />
+        <Row label="Taxes withheld" v={fmt(calc.taxes)} />
         <Row label="Allocated" v={fmt(calc.allocated - calc.pocketYr + pocketDisplay)} />
         <Row label="Pocket Money Left" v={fmt(remainingDisplay)} bold
           className={remainingDisplay < 0 ? "text-destructive" : "text-primary"} />
       </div>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
         <button className="pixel-btn" onClick={() => onJump("income")}>$ EDIT INCOME</button>
-        <button className="pixel-btn" onClick={() => onJump("paychecks")}>▶ LOG PAYCHECK</button>
         <button className="pixel-btn coin" onClick={() => onJump("goals")}>★ MY GOALS</button>
       </div>
     </section>
