@@ -162,10 +162,17 @@ function Index() {
     const ss = Math.min(income, 168600) * 0.062;
     const medicare = income * 0.0145;
     const taxes = income * 0.199;
+    const thisMonth = currentMonthKey();
+    const pocketMo = pocket.reduce((s, p) => {
+      if (p.recurring !== false) return s + p.amount;
+      return (p.month ?? thisMonth) === thisMonth ? s + p.amount : s;
+    }, 0);
     const pocketYr = pocket.reduce((s, p) => s + (p.recurring !== false ? p.amount * 12 : p.amount), 0);
-    const allocated = taxes + hysa + k401 + roth + studentLoan + pocketYr;
+    const fixedYr = taxes + hysa + k401 + roth + studentLoan;
+    const allocated = fixedYr + pocketYr;
     const remaining = income - allocated;
-    return { hysa, k401, roth, taxes, fed, il, ss, medicare, pocketYr, allocated, remaining, studentLoan };
+    const remainingMo = income / 12 - fixedYr / 12 - pocketMo;
+    return { hysa, k401, roth, taxes, fed, il, ss, medicare, pocketMo, pocketYr, allocated, remaining, remainingMo, studentLoan };
   }, [income, hysaPct, k401Pct, rothPct, studentLoan, pocket]);
 
   const allocatePaycheck = (amount: number): Allocations => {
@@ -254,7 +261,7 @@ function Index() {
             calc={calc}
           />
         ) : tab === "pocket" ? (
-          <PocketTab pocket={pocket} setPocket={setPocket} pocketYr={calc.pocketYr} pocketLeftYr={calc.remaining} />
+          <PocketTab pocket={pocket} setPocket={setPocket} pocketMo={calc.pocketMo} pocketYr={calc.pocketYr} pocketLeftMo={calc.remainingMo} pocketLeftYr={calc.remaining} />
         ) : tab === "paychecks" ? (
           <PaychecksTab
             paychecks={paychecks} setPaychecks={setPaychecks}
@@ -281,14 +288,19 @@ function OverviewTab({ calc, pocket, income, onJump }: {
   const divisor = view === "weekly" ? 52 : view === "monthly" ? 12 : 1;
   const fmt = (n: number) => money(n / divisor);
 
+  // Pocket is a monthly figure (recurring + this-month one-times). For
+  // weekly/monthly views, scale it so fmt(value/divisor) shows the true
+  // monthly/weekly pocket value instead of (yearly/12).
+  const pocketDisplay = view === "yearly" ? calc.pocketYr : calc.pocketMo * 12;
+  const remainingDisplay = view === "yearly" ? calc.remaining : calc.remainingMo * 12;
   const chartData = [
     { name: "Taxes", value: calc.taxes, color: "var(--life)" },
     { name: "HYSA", value: calc.hysa, color: "var(--mana)" },
     { name: "401(k)", value: calc.k401, color: "var(--xp)" },
     { name: "Roth IRA", value: calc.roth, color: "var(--coin)" },
     { name: "Student Loans", value: calc.studentLoan, color: "var(--danger)" },
-    { name: "Planned Pocket", value: calc.pocketYr, color: "var(--pocket)" },
-    { name: "Pocket Money Left", value: Math.max(0, calc.remaining), color: "var(--accent)" },
+    { name: "Planned Pocket", value: pocketDisplay, color: "var(--pocket)" },
+    { name: "Pocket Money Left", value: Math.max(0, remainingDisplay), color: "var(--accent)" },
   ].filter((d) => d.value > 0);
 
 
@@ -333,9 +345,9 @@ function OverviewTab({ calc, pocket, income, onJump }: {
 
       <div className="mt-4 pixel-box-sm">
         <Row label={`Income (${view})`} v={fmt(income)} />
-        <Row label="Allocated" v={fmt(calc.allocated)} />
-        <Row label="Pocket Money Left" v={fmt(calc.remaining)} bold
-          className={calc.remaining < 0 ? "text-destructive" : "text-primary"} />
+        <Row label="Allocated" v={fmt(calc.allocated - calc.pocketYr + pocketDisplay)} />
+        <Row label="Pocket Money Left" v={fmt(remainingDisplay)} bold
+          className={remainingDisplay < 0 ? "text-destructive" : "text-primary"} />
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
@@ -394,7 +406,7 @@ function IncomeTab({ income, setIncome, hysaPct, setHysaPct, k401Pct, setK401Pct
 }
 
 /* ---------------- POCKET ---------------- */
-function PocketTab({ pocket, setPocket, pocketYr, pocketLeftYr }: { pocket: PocketItem[]; setPocket: (p: PocketItem[]) => void; pocketYr: number; pocketLeftYr: number }) {
+function PocketTab({ pocket, setPocket, pocketMo, pocketYr, pocketLeftMo, pocketLeftYr }: { pocket: PocketItem[]; setPocket: (p: PocketItem[]) => void; pocketMo: number; pocketYr: number; pocketLeftMo: number; pocketLeftYr: number }) {
   const [newName, setNewName] = useState("");
   const [newAmt, setNewAmt] = useState<number | "">("");
   const [newRecurring, setNewRecurring] = useState(true);
@@ -476,14 +488,14 @@ function PocketTab({ pocket, setPocket, pocketYr, pocketLeftYr }: { pocket: Pock
       <div className="mt-5 pixel-box-sm flex flex-wrap items-center justify-between gap-3">
         <span className="label-pixel">Pocket Total</span>
         <span className="text-xl text-accent">
-          {money(pocketYr / 52)} / wk · {money(pocket.reduce((s, p) => s + p.amount, 0))} / mo · {money(pocketYr)} / yr
+          {money(pocketMo * 12 / 52)} / wk · {money(pocketMo)} / mo · {money(pocketYr)} / yr
         </span>
       </div>
 
       <div className="mt-3 pixel-box-sm flex flex-wrap items-center justify-between gap-3">
         <span className="label-pixel">Pocket Money You Can Allocate</span>
         <span className={pocketLeftYr < 0 ? "text-xl text-destructive" : "text-xl text-primary"}>
-          {money(pocketLeftYr / 52)} / wk · {money(pocketLeftYr / 12)} / mo · {money(pocketLeftYr)} / yr
+          {money(pocketLeftMo * 12 / 52)} / wk · {money(pocketLeftMo)} / mo · {money(pocketLeftYr)} / yr
         </span>
       </div>
     </section>
