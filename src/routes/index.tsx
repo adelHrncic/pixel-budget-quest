@@ -490,7 +490,7 @@ function PocketTab({ pocket, setPocket, pocketMo, pocketYr, pocketLeftMo, pocket
       <div className="mt-3 pixel-box-sm flex flex-wrap items-center justify-between gap-3">
         <span className="label-pixel">Pocket Money You Can Allocate</span>
         <span className={pocketLeftYr < 0 ? "text-xl text-destructive" : "text-xl text-primary"}>
-          {money(pocketLeftYr / 52)} / wk · {money(pocketLeftYr / 12)} / mo · {money(pocketLeftYr)} / yr
+          {money(pocketLeftMo * 12 / 52)} / wk · {money(pocketLeftMo)} / mo · {money(pocketLeftYr)} / yr
         </span>
       </div>
     </section>
