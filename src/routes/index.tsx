@@ -261,7 +261,7 @@ function Index() {
             calc={calc}
           />
         ) : tab === "pocket" ? (
-          <PocketTab pocket={pocket} setPocket={setPocket} pocketYr={calc.pocketYr} pocketLeftYr={calc.remaining} />
+          <PocketTab pocket={pocket} setPocket={setPocket} pocketMo={calc.pocketMo} pocketYr={calc.pocketYr} pocketLeftMo={calc.remainingMo} pocketLeftYr={calc.remaining} />
         ) : tab === "paychecks" ? (
           <PaychecksTab
             paychecks={paychecks} setPaychecks={setPaychecks}
