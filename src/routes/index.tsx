@@ -288,14 +288,19 @@ function OverviewTab({ calc, pocket, income, onJump }: {
   const divisor = view === "weekly" ? 52 : view === "monthly" ? 12 : 1;
   const fmt = (n: number) => money(n / divisor);
 
+  // Pocket is a monthly figure (recurring + this-month one-times). For
+  // weekly/monthly views, scale it so fmt(value/divisor) shows the true
+  // monthly/weekly pocket value instead of (yearly/12).
+  const pocketDisplay = view === "yearly" ? calc.pocketYr : calc.pocketMo * 12;
+  const remainingDisplay = view === "yearly" ? calc.remaining : calc.remainingMo * 12;
   const chartData = [
     { name: "Taxes", value: calc.taxes, color: "var(--life)" },
     { name: "HYSA", value: calc.hysa, color: "var(--mana)" },
     { name: "401(k)", value: calc.k401, color: "var(--xp)" },
     { name: "Roth IRA", value: calc.roth, color: "var(--coin)" },
     { name: "Student Loans", value: calc.studentLoan, color: "var(--danger)" },
-    { name: "Planned Pocket", value: calc.pocketYr, color: "var(--pocket)" },
-    { name: "Pocket Money Left", value: Math.max(0, calc.remaining), color: "var(--accent)" },
+    { name: "Planned Pocket", value: pocketDisplay, color: "var(--pocket)" },
+    { name: "Pocket Money Left", value: Math.max(0, remainingDisplay), color: "var(--accent)" },
   ].filter((d) => d.value > 0);
 
 
