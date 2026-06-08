@@ -162,10 +162,17 @@ function Index() {
     const ss = Math.min(income, 168600) * 0.062;
     const medicare = income * 0.0145;
     const taxes = income * 0.199;
+    const thisMonth = currentMonthKey();
+    const pocketMo = pocket.reduce((s, p) => {
+      if (p.recurring !== false) return s + p.amount;
+      return (p.month ?? thisMonth) === thisMonth ? s + p.amount : s;
+    }, 0);
     const pocketYr = pocket.reduce((s, p) => s + (p.recurring !== false ? p.amount * 12 : p.amount), 0);
-    const allocated = taxes + hysa + k401 + roth + studentLoan + pocketYr;
+    const fixedYr = taxes + hysa + k401 + roth + studentLoan;
+    const allocated = fixedYr + pocketYr;
     const remaining = income - allocated;
-    return { hysa, k401, roth, taxes, fed, il, ss, medicare, pocketYr, allocated, remaining, studentLoan };
+    const remainingMo = income / 12 - fixedYr / 12 - pocketMo;
+    return { hysa, k401, roth, taxes, fed, il, ss, medicare, pocketMo, pocketYr, allocated, remaining, remainingMo, studentLoan };
   }, [income, hysaPct, k401Pct, rothPct, studentLoan, pocket]);
 
   const allocatePaycheck = (amount: number): Allocations => {
