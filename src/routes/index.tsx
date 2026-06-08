@@ -401,7 +401,7 @@ function IncomeTab({ income, setIncome, hysaPct, setHysaPct, k401Pct, setK401Pct
 }
 
 /* ---------------- POCKET ---------------- */
-function PocketTab({ pocket, setPocket, pocketYr, pocketLeftYr }: { pocket: PocketItem[]; setPocket: (p: PocketItem[]) => void; pocketYr: number; pocketLeftYr: number }) {
+function PocketTab({ pocket, setPocket, pocketMo, pocketYr, pocketLeftMo, pocketLeftYr }: { pocket: PocketItem[]; setPocket: (p: PocketItem[]) => void; pocketMo: number; pocketYr: number; pocketLeftMo: number; pocketLeftYr: number }) {
   const [newName, setNewName] = useState("");
   const [newAmt, setNewAmt] = useState<number | "">("");
   const [newRecurring, setNewRecurring] = useState(true);
