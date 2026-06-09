@@ -179,31 +179,27 @@ function Index() {
   const daysUntilPaycheck = Math.ceil((nextPayday.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
 
   const calc = useMemo(() => {
-    const k401 = income * (k401Pct / 100);
-    // Flat 19.9% tax rate
+    // Flat 19.9% tax — deducted first.
     const taxes = income * 0.199;
-    const fed = taxes;
-    const il = 0;
-    const ss = 0;
-    const medicare = 0;
-    
-    // Net income = gross - taxes - pre-tax contributions
-    const net = Math.max(0, income - taxes - k401);
-    
-    // Post-tax allocations from NET income only
+    const net = Math.max(0, income - taxes);
+
+    // All allocations are percentages of NET pay.
     const hysa = net * (hysaPct / 100);
+    const k401 = net * (k401Pct / 100);
     const roth = net * (rothPct / 100);
+
     const thisMonth = currentMonthKey();
     const pocketMo = pocket.reduce((s, p) => {
       if (p.recurring !== false) return s + p.amount;
       return (p.month ?? thisMonth) === thisMonth ? s + p.amount : s;
     }, 0);
     const pocketYr = pocket.reduce((s, p) => s + (p.recurring !== false ? p.amount * 12 : p.amount), 0);
+
     const fixedYrNoTax = hysa + k401 + roth + studentLoan;
     const allocated = fixedYrNoTax + pocketYr;
     const remaining = net - allocated;
     const remainingMo = net / 12 - fixedYrNoTax / 12 - pocketMo;
-    return { hysa, k401, roth, taxes, net, fed, il, ss, medicare, pocketMo, pocketYr, allocated, remaining, remainingMo, studentLoan };
+    return { hysa, k401, roth, taxes, net, fed: taxes, il: 0, ss: 0, medicare: 0, pocketMo, pocketYr, allocated, remaining, remainingMo, studentLoan };
   }, [income, hysaPct, k401Pct, rothPct, studentLoan, pocket]);
 
 
