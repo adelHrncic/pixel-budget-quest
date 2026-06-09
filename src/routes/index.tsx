@@ -80,7 +80,6 @@ function Index() {
     return Number(localStorage.getItem("hoursPerWeek")) || 40;
   });
   const income = hourlyRate * hoursPerWeek * 52;
-  const setIncome = (_: number) => {}; // legacy noop (income now derived)
   const [hysaPct, setHysaPct] = useState(28);
   const [k401Pct, setK401Pct] = useState(10);
   const [rothPct, setRothPct] = useState(15);
