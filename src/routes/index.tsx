@@ -152,16 +152,33 @@ function Index() {
 
   const signOut = async () => { await supabase.auth.signOut(); nav({ to: "/login" }); };
 
+  // Calculate next payday (every Wednesday)
+  const getNextPayday = (from: Date = new Date()) => {
+    const date = new Date(from);
+    const day = date.getDay();
+    const daysUntilWednesday = (3 - day + 7) % 7 || 7; // 3 = Wednesday
+    date.setDate(date.getDate() + daysUntilWednesday);
+    return date;
+  };
+
+  const nextPayday = getNextPayday();
+  const daysUntilPaycheck = Math.ceil((nextPayday.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+
   const calc = useMemo(() => {
-    const hysa = income * (hysaPct / 100);
     const k401 = income * (k401Pct / 100);
-    const roth = income * (rothPct / 100);
+    // Traditional 401(k) reduces taxable income; Roth does not
     const fed = federalTax(income, k401);
     const il = Math.max(0, income - k401) * IL_RATE;
     const ss = Math.min(income, 168600) * 0.062;
     const medicare = income * 0.0145;
-    const taxes = income * 0.199;
-    const net = Math.max(0, income - taxes);
+    const taxes = fed + il + ss + medicare;
+    
+    // Net income = gross - taxes - pre-tax contributions
+    const net = Math.max(0, income - taxes - k401);
+    
+    // Post-tax allocations from NET income only
+    const hysa = net * (hysaPct / 100);
+    const roth = net * (rothPct / 100);
     const thisMonth = currentMonthKey();
     const pocketMo = pocket.reduce((s, p) => {
       if (p.recurring !== false) return s + p.amount;
@@ -213,6 +230,12 @@ function Index() {
         </h1>
         <p className="mt-2 text-muted-foreground">~ press start to manage your gold ~ <span className="blink">_</span></p>
         <div className="mt-2 label-pixel text-accent">▣ {formatMonthKey(currentMonthKey())} ▣</div>
+        <div className="mt-3 inline-block rounded-lg px-3 py-2" style={{
+          background: "linear-gradient(135deg, rgba(100,200,255,0.2) 0%, rgba(120,80,200,0.2) 100%)",
+          border: "2px solid var(--border)"
+        }}>
+          <div className="text-sm font-mono text-accent">💰 Payday: {nextPayday.toLocaleDateString()} ({daysUntilPaycheck}d)</div>
+        </div>
         {userId && (
           <div className="mt-3 flex items-center justify-center gap-3 flex-wrap text-sm">
             <span className="text-accent truncate max-w-[200px]">● {userEmail}</span>
@@ -290,6 +313,7 @@ function OverviewTab({ calc, pocket, income, onJump }: {
   const pocketDisplay = view === "yearly" ? calc.pocketYr : calc.pocketMo * 12;
   const remainingDisplay = view === "yearly" ? calc.remaining : calc.remainingMo * 12;
   const chartData = [
+    { name: "Taxes", value: calc.taxes, color: "#ef4444" }, // Red for taxes
     { name: "HYSA", value: calc.hysa, color: "var(--mana)" },
     { name: "401(k)", value: calc.k401, color: "var(--xp)" },
     { name: "Roth IRA", value: calc.roth, color: "var(--coin)" },
@@ -312,15 +336,27 @@ function OverviewTab({ calc, pocket, income, onJump }: {
         </div>
       </div>
 
-      <div className="my-4 h-72">
+      <div className="my-4 h-72 rounded-lg" style={{
+        background: "linear-gradient(135deg, rgba(120,80,200,0.1) 0%, rgba(100,60,180,0.05) 100%)",
+        padding: "1rem",
+        border: "3px solid var(--border)",
+        boxShadow: "inset 0 0 20px rgba(120,80,200,0.1), 0 8px 20px rgba(0,0,0,0.3)"
+      }}>
         <ResponsiveContainer>
           <PieChart>
             <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%"
-              outerRadius={110} innerRadius={50} stroke="#000" strokeWidth={3}>
+              outerRadius={110} innerRadius={50} stroke="#000" strokeWidth={3}
+              animationBegin={0} animationDuration={800} animationEasing="ease-out">
               {chartData.map((d, i) => <Cell key={i} fill={d.color} />)}
             </Pie>
             <Tooltip
-              contentStyle={{ background: "var(--card)", border: "3px solid var(--border)", fontFamily: "var(--font-mono)", borderRadius: 0 }}
+              contentStyle={{
+                background: "var(--card)",
+                border: "3px solid var(--border)",
+                fontFamily: "var(--font-mono)",
+                borderRadius: "4px",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.3)"
+              }}
               formatter={(v) => fmt(Number(v))}
             />
           </PieChart>
