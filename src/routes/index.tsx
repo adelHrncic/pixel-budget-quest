@@ -71,11 +71,27 @@ function Index() {
   const [tab, setTab] = useState<Tab>("overview");
   const [scrolled, setScrolled] = useState(false);
 
-  const [income, setIncome] = useState(75000);
-  const [hysaPct, setHysaPct] = useState(10);
+  const [hourlyRate, setHourlyRate] = useState<number>(() => {
+    if (typeof window === "undefined") return 25;
+    return Number(localStorage.getItem("hourlyRate")) || 25;
+  });
+  const [hoursPerWeek, setHoursPerWeek] = useState<number>(() => {
+    if (typeof window === "undefined") return 40;
+    return Number(localStorage.getItem("hoursPerWeek")) || 40;
+  });
+  const income = hourlyRate * hoursPerWeek * 52;
+  const setIncome = (_: number) => {}; // legacy noop (income now derived)
+  const [hysaPct, setHysaPct] = useState(28);
   const [k401Pct, setK401Pct] = useState(10);
-  const [rothPct, setRothPct] = useState(5);
+  const [rothPct, setRothPct] = useState(15);
   const [studentLoan, setStudentLoan] = useState(4800);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("hourlyRate", String(hourlyRate));
+  }, [hourlyRate]);
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("hoursPerWeek", String(hoursPerWeek));
+  }, [hoursPerWeek]);
   const [pocket, setPocket] = useState<PocketItem[]>([
     { id: "1", name: "Rent", amount: 1400 },
     { id: "2", name: "Groceries", amount: 450 },
