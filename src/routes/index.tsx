@@ -166,12 +166,12 @@ function Index() {
 
   const calc = useMemo(() => {
     const k401 = income * (k401Pct / 100);
-    // Traditional 401(k) reduces taxable income; Roth does not
-    const fed = federalTax(income, k401);
-    const il = Math.max(0, income - k401) * IL_RATE;
-    const ss = Math.min(income, 168600) * 0.062;
-    const medicare = income * 0.0145;
-    const taxes = fed + il + ss + medicare;
+    // Flat 19.9% tax rate
+    const taxes = income * 0.199;
+    const fed = taxes;
+    const il = 0;
+    const ss = 0;
+    const medicare = 0;
     
     // Net income = gross - taxes - pre-tax contributions
     const net = Math.max(0, income - taxes - k401);
