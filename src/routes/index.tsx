@@ -405,22 +405,46 @@ function OverviewTab({ calc, pocket, income, onJump }: {
 }
 
 /* ---------------- INCOME ---------------- */
-function IncomeTab({ income, setIncome, hysaPct, setHysaPct, k401Pct, setK401Pct,
+function IncomeTab({ hourlyRate, setHourlyRate, hoursPerWeek, setHoursPerWeek, income,
+  hysaPct, setHysaPct, k401Pct, setK401Pct,
   rothPct, setRothPct, studentLoan, setStudentLoan, calc }: any) {
+  const weeklyGross = hourlyRate * hoursPerWeek;
+  const weeklyNet = weeklyGross * (1 - 0.199);
   return (
     <section className="pixel-box space-y-5">
       <h2 className="text-sm md:text-base text-accent">▶ INCOME & ALLOCATIONS</h2>
 
-      <div>
-        <label className="label-pixel">Yearly Income</label>
-        <input type="number" className="pixel-input mt-1" value={income}
-          onChange={(e) => setIncome(Number(e.target.value) || 0)} />
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="label-pixel">Hourly Rate $</label>
+          <input type="number" step="0.01" className="pixel-input mt-1" value={hourlyRate}
+            onChange={(e) => setHourlyRate(Number(e.target.value) || 0)} />
+        </div>
+        <div>
+          <label className="label-pixel">Hours / Week</label>
+          <input type="number" step="0.5" className="pixel-input mt-1" value={hoursPerWeek}
+            onChange={(e) => setHoursPerWeek(Number(e.target.value) || 0)} />
+        </div>
+      </div>
+
+      <div className="pixel-box-sm space-y-1 text-base">
+        <div className="label-pixel mb-2">Gross Pay</div>
+        <Row label="Per week" v={money(weeklyGross)} />
+        <Row label="Per month" v={money(income / 12)} />
+        <Row label="Per year" v={money(income)} bold />
+      </div>
+
+      <div className="pixel-box-sm space-y-1 text-base">
+        <div className="label-pixel mb-2">Net Pay (after 19.9% tax)</div>
+        <Row label="Per paycheck (weekly)" v={money(weeklyNet)} bold className="text-accent" />
+        <Row label="Per month" v={money(calc.net / 12)} />
+        <Row label="Per year" v={money(calc.net)} />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <PctInput label="HYSA %" value={hysaPct} set={setHysaPct} />
-        <PctInput label="401(k) %" value={k401Pct} set={setK401Pct} />
-        <PctInput label="Roth IRA %" value={rothPct} set={setRothPct} />
+        <PctInput label="HYSA % of net" value={hysaPct} set={setHysaPct} />
+        <PctInput label="401(k) % of net" value={k401Pct} set={setK401Pct} />
+        <PctInput label="Roth IRA % of net" value={rothPct} set={setRothPct} />
         <div>
           <label className="label-pixel">Loans /yr</label>
           <input type="number" className="pixel-input mt-1" value={studentLoan}
@@ -429,16 +453,10 @@ function IncomeTab({ income, setIncome, hysaPct, setHysaPct, k401Pct, setK401Pct
       </div>
 
       <div className="pixel-box-sm space-y-1 text-base">
-        <div className="label-pixel mb-2">Tax Breakdown /mo</div>
-        <Row label="Federal" v={money(calc.fed / 12)} />
-        <Row label="Illinois (4.95%)" v={money(calc.il / 12)} />
-        <Row label="Social Security (6.2%)" v={money(calc.ss / 12)} />
-        <Row label="Medicare (1.45%)" v={money(calc.medicare / 12)} />
-        <div className="mt-2 border-t-2 border-dashed border-border pt-2">
-          <Row label="Total /mo" v={money(calc.taxes / 12)} bold />
-          <Row label="Effective rate"
-            v={`${income > 0 ? ((calc.taxes / income) * 100).toFixed(2) : "0.00"}%`} />
-        </div>
+        <div className="label-pixel mb-2">Tax (flat 19.9%)</div>
+        <Row label="Per week" v={money(calc.taxes / 52)} />
+        <Row label="Per month" v={money(calc.taxes / 12)} />
+        <Row label="Per year" v={money(calc.taxes)} bold />
       </div>
 
       <div className="pixel-box-sm grid sm:grid-cols-3 gap-3 text-base">
