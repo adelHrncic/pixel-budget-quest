@@ -350,26 +350,60 @@ function OverviewTab({ calc, pocket, income, onJump }: {
   pocket: PocketItem[]; income: number; onJump: (t: Tab) => void;
 }) {
   const [view, setView] = useState<"weekly" | "monthly" | "yearly">("monthly");
-  const divisor = view === "weekly" ? 52 : view === "monthly" ? 12 : 1;
-  const fmt = (n: number) => money(n / divisor);
+  const fmt = (n: number) => money(n);
 
-  // Budget is calculated on NET income (after tax). Pocket is a monthly
-  // figure (recurring + this-month one-times); scale to yearly so all pie
-  // slices share the same time basis before the fmt() divisor is applied.
-  const pocketDisplay = view === "yearly" ? calc.pocketYr : calc.pocketMo * 12;
-  const remainingDisplay = view === "yearly" ? calc.remaining : calc.remainingMo * 12;
+  // Pick the right time-bucket per view. Monthly reflects THIS month's
+  // actual paychecks (weekly net × Wednesdays in the current month),
+  // not yearly/12.
+  const slices = view === "weekly"
+    ? {
+        taxes: calc.weeklyTaxes,
+        hysa: calc.hysa / 52,
+        k401: calc.k401 / 52,
+        roth: calc.roth / 52,
+        studentLoan: calc.studentLoan / 52,
+        pocket: (calc.pocketMo * 12) / 52,
+        net: calc.weeklyNet,
+        remaining: calc.weeklyNet - (calc.hysa / 52 + calc.k401 / 52 + calc.roth / 52 + calc.studentLoan / 52 + (calc.pocketMo * 12) / 52),
+      }
+    : view === "monthly"
+    ? {
+        taxes: calc.monthlyTaxes,
+        hysa: calc.hysaMo,
+        k401: calc.k401Mo,
+        roth: calc.rothMo,
+        studentLoan: calc.studentLoanMo,
+        pocket: calc.pocketMo,
+        net: calc.monthlyNet,
+        remaining: calc.remainingMo,
+      }
+    : {
+        taxes: calc.taxes,
+        hysa: calc.hysa,
+        k401: calc.k401,
+        roth: calc.roth,
+        studentLoan: calc.studentLoan,
+        pocket: calc.pocketYr,
+        net: calc.net,
+        remaining: calc.remaining,
+      };
+
   const chartData = [
-    { name: "Taxes", value: calc.taxes, color: "#ef4444" }, // Red for taxes
-    { name: "HYSA", value: calc.hysa, color: "var(--mana)" },
-    { name: "401(k)", value: calc.k401, color: "var(--xp)" },
-    { name: "Roth IRA", value: calc.roth, color: "var(--coin)" },
-    { name: "Student Loans", value: calc.studentLoan, color: "var(--danger)" },
-    { name: "Planned Pocket", value: pocketDisplay, color: "var(--pocket)" },
-    { name: "Pocket Money Left", value: Math.max(0, remainingDisplay), color: "var(--accent)" },
+    { name: "Taxes", value: slices.taxes, color: "#ef4444" },
+    { name: "HYSA", value: slices.hysa, color: "var(--mana)" },
+    { name: "401(k)", value: slices.k401, color: "var(--xp)" },
+    { name: "Roth IRA", value: slices.roth, color: "var(--coin)" },
+    { name: "Student Loans", value: slices.studentLoan, color: "var(--danger)" },
+    { name: "Planned Pocket", value: slices.pocket, color: "var(--pocket)" },
+    { name: "Pocket Money Left", value: Math.max(0, slices.remaining), color: "var(--accent)" },
   ].filter((d) => d.value > 0);
 
-  // Suppress unused-variable warning while keeping the prop for parity.
   void income;
+  void pocket;
+
+  const viewLabel = view === "weekly" ? "weekly" : view === "monthly"
+    ? `${formatMonthKey(currentMonthKey())} · ${calc.wednesdaysThisMonth} paychecks`
+    : "yearly";
 
   return (
     <section className="pixel-box scanlines">
@@ -381,6 +415,8 @@ function OverviewTab({ calc, pocket, income, onJump }: {
           <button className={`pixel-btn ${view === "yearly" ? "coin" : ""}`} onClick={() => setView("yearly")}>YR</button>
         </div>
       </div>
+
+      <div className="mt-2 text-xs text-muted-foreground text-center">~ {viewLabel} ~</div>
 
       <div className="my-4 h-72 rounded-lg" style={{
         background: "linear-gradient(135deg, rgba(120,80,200,0.1) 0%, rgba(100,60,180,0.05) 100%)",
@@ -422,11 +458,11 @@ function OverviewTab({ calc, pocket, income, onJump }: {
       </ul>
 
       <div className="mt-4 pixel-box-sm">
-        <Row label={`Net Income (${view})`} v={fmt(calc.net)} />
-        <Row label="Taxes withheld" v={fmt(calc.taxes)} />
-        <Row label="Allocated" v={fmt(calc.allocated - calc.pocketYr + pocketDisplay)} />
-        <Row label="Pocket Money Left" v={fmt(remainingDisplay)} bold
-          className={remainingDisplay < 0 ? "text-destructive" : "text-primary"} />
+        <Row label={`Net Income (${view})`} v={fmt(slices.net)} />
+        <Row label="Taxes withheld" v={fmt(slices.taxes)} />
+        <Row label="Allocated" v={fmt(slices.hysa + slices.k401 + slices.roth + slices.studentLoan + slices.pocket)} />
+        <Row label="Pocket Money Left" v={fmt(slices.remaining)} bold
+          className={slices.remaining < 0 ? "text-destructive" : "text-primary"} />
       </div>
 
 
