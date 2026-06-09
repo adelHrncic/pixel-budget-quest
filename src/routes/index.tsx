@@ -129,7 +129,6 @@ function Index() {
         (supabase as any).from("goals").select("*").eq("user_id", uid).order("created_at", { ascending: true }),
       ]);
       if (row) {
-        setIncome(Number(row.income));
         setHysaPct(Number(row.hysa_pct));
         setK401Pct(Number(row.k401_pct));
         setRothPct(Number(row.roth_pct));
