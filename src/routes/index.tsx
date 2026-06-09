@@ -178,7 +178,24 @@ function Index() {
   const nextPayday = getNextPayday();
   const daysUntilPaycheck = Math.ceil((nextPayday.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
 
+  // Count Wednesdays (paydays) in the current month so monthly figures
+  // reflect that specific month's actual paychecks, not yearly / 12.
+  const wednesdaysThisMonth = useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    let count = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      if (new Date(y, m, d).getDay() === 3) count++;
+    }
+    return count;
+  }, []);
+
   const calc = useMemo(() => {
+    const weeklyGross = income / 52;
+    const weeklyTaxes = weeklyGross * 0.199;
+    const weeklyNet = weeklyGross - weeklyTaxes;
+
     // Flat 19.9% tax — deducted first.
     const taxes = income * 0.199;
     const net = Math.max(0, income - taxes);
@@ -195,12 +212,29 @@ function Index() {
     }, 0);
     const pocketYr = pocket.reduce((s, p) => s + (p.recurring !== false ? p.amount * 12 : p.amount), 0);
 
+    // Monthly figures based on actual paychecks this month
+    const monthlyGross = weeklyGross * wednesdaysThisMonth;
+    const monthlyTaxes = weeklyTaxes * wednesdaysThisMonth;
+    const monthlyNet = weeklyNet * wednesdaysThisMonth;
+    const hysaMo = monthlyNet * (hysaPct / 100);
+    const k401Mo = monthlyNet * (k401Pct / 100);
+    const rothMo = monthlyNet * (rothPct / 100);
+    const studentLoanMo = studentLoan / 12;
+    const remainingMo = monthlyNet - (hysaMo + k401Mo + rothMo + studentLoanMo + pocketMo);
+
     const fixedYrNoTax = hysa + k401 + roth + studentLoan;
     const allocated = fixedYrNoTax + pocketYr;
     const remaining = net - allocated;
-    const remainingMo = net / 12 - fixedYrNoTax / 12 - pocketMo;
-    return { hysa, k401, roth, taxes, net, fed: taxes, il: 0, ss: 0, medicare: 0, pocketMo, pocketYr, allocated, remaining, remainingMo, studentLoan };
-  }, [income, hysaPct, k401Pct, rothPct, studentLoan, pocket]);
+
+    return {
+      hysa, k401, roth, taxes, net, fed: taxes, il: 0, ss: 0, medicare: 0,
+      pocketMo, pocketYr, allocated, remaining, remainingMo, studentLoan,
+      weeklyGross, weeklyNet, weeklyTaxes,
+      monthlyGross, monthlyNet, monthlyTaxes,
+      hysaMo, k401Mo, rothMo, studentLoanMo,
+      wednesdaysThisMonth,
+    };
+  }, [income, hysaPct, k401Pct, rothPct, studentLoan, pocket, wednesdaysThisMonth]);
 
 
   const allocatePaycheck = (amount: number): Allocations => {
