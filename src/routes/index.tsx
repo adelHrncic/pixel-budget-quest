@@ -71,11 +71,26 @@ function Index() {
   const [tab, setTab] = useState<Tab>("overview");
   const [scrolled, setScrolled] = useState(false);
 
-  const [income, setIncome] = useState(75000);
-  const [hysaPct, setHysaPct] = useState(10);
+  const [hourlyRate, setHourlyRate] = useState<number>(() => {
+    if (typeof window === "undefined") return 25;
+    return Number(localStorage.getItem("hourlyRate")) || 25;
+  });
+  const [hoursPerWeek, setHoursPerWeek] = useState<number>(() => {
+    if (typeof window === "undefined") return 40;
+    return Number(localStorage.getItem("hoursPerWeek")) || 40;
+  });
+  const income = hourlyRate * hoursPerWeek * 52;
+  const [hysaPct, setHysaPct] = useState(28);
   const [k401Pct, setK401Pct] = useState(10);
-  const [rothPct, setRothPct] = useState(5);
+  const [rothPct, setRothPct] = useState(15);
   const [studentLoan, setStudentLoan] = useState(4800);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("hourlyRate", String(hourlyRate));
+  }, [hourlyRate]);
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("hoursPerWeek", String(hoursPerWeek));
+  }, [hoursPerWeek]);
   const [pocket, setPocket] = useState<PocketItem[]>([
     { id: "1", name: "Rent", amount: 1400 },
     { id: "2", name: "Groceries", amount: 450 },
@@ -113,7 +128,6 @@ function Index() {
         (supabase as any).from("goals").select("*").eq("user_id", uid).order("created_at", { ascending: true }),
       ]);
       if (row) {
-        setIncome(Number(row.income));
         setHysaPct(Number(row.hysa_pct));
         setK401Pct(Number(row.k401_pct));
         setRothPct(Number(row.roth_pct));
@@ -165,31 +179,27 @@ function Index() {
   const daysUntilPaycheck = Math.ceil((nextPayday.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
 
   const calc = useMemo(() => {
-    const k401 = income * (k401Pct / 100);
-    // Flat 19.9% tax rate
+    // Flat 19.9% tax — deducted first.
     const taxes = income * 0.199;
-    const fed = taxes;
-    const il = 0;
-    const ss = 0;
-    const medicare = 0;
-    
-    // Net income = gross - taxes - pre-tax contributions
-    const net = Math.max(0, income - taxes - k401);
-    
-    // Post-tax allocations from NET income only
+    const net = Math.max(0, income - taxes);
+
+    // All allocations are percentages of NET pay.
     const hysa = net * (hysaPct / 100);
+    const k401 = net * (k401Pct / 100);
     const roth = net * (rothPct / 100);
+
     const thisMonth = currentMonthKey();
     const pocketMo = pocket.reduce((s, p) => {
       if (p.recurring !== false) return s + p.amount;
       return (p.month ?? thisMonth) === thisMonth ? s + p.amount : s;
     }, 0);
     const pocketYr = pocket.reduce((s, p) => s + (p.recurring !== false ? p.amount * 12 : p.amount), 0);
+
     const fixedYrNoTax = hysa + k401 + roth + studentLoan;
     const allocated = fixedYrNoTax + pocketYr;
     const remaining = net - allocated;
     const remainingMo = net / 12 - fixedYrNoTax / 12 - pocketMo;
-    return { hysa, k401, roth, taxes, net, fed, il, ss, medicare, pocketMo, pocketYr, allocated, remaining, remainingMo, studentLoan };
+    return { hysa, k401, roth, taxes, net, fed: taxes, il: 0, ss: 0, medicare: 0, pocketMo, pocketYr, allocated, remaining, remainingMo, studentLoan };
   }, [income, hysaPct, k401Pct, rothPct, studentLoan, pocket]);
 
 
@@ -277,7 +287,9 @@ function Index() {
           <OverviewTab calc={calc} pocket={pocket} income={income} onJump={changeTab} />
         ) : tab === "income" ? (
           <IncomeTab
-            income={income} setIncome={setIncome}
+            hourlyRate={hourlyRate} setHourlyRate={setHourlyRate}
+            hoursPerWeek={hoursPerWeek} setHoursPerWeek={setHoursPerWeek}
+            income={income}
             hysaPct={hysaPct} setHysaPct={setHysaPct}
             k401Pct={k401Pct} setK401Pct={setK401Pct}
             rothPct={rothPct} setRothPct={setRothPct}
@@ -393,22 +405,46 @@ function OverviewTab({ calc, pocket, income, onJump }: {
 }
 
 /* ---------------- INCOME ---------------- */
-function IncomeTab({ income, setIncome, hysaPct, setHysaPct, k401Pct, setK401Pct,
+function IncomeTab({ hourlyRate, setHourlyRate, hoursPerWeek, setHoursPerWeek, income,
+  hysaPct, setHysaPct, k401Pct, setK401Pct,
   rothPct, setRothPct, studentLoan, setStudentLoan, calc }: any) {
+  const weeklyGross = hourlyRate * hoursPerWeek;
+  const weeklyNet = weeklyGross * (1 - 0.199);
   return (
     <section className="pixel-box space-y-5">
       <h2 className="text-sm md:text-base text-accent">▶ INCOME & ALLOCATIONS</h2>
 
-      <div>
-        <label className="label-pixel">Yearly Income</label>
-        <input type="number" className="pixel-input mt-1" value={income}
-          onChange={(e) => setIncome(Number(e.target.value) || 0)} />
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="label-pixel">Hourly Rate $</label>
+          <input type="number" step="0.01" className="pixel-input mt-1" value={hourlyRate}
+            onChange={(e) => setHourlyRate(Number(e.target.value) || 0)} />
+        </div>
+        <div>
+          <label className="label-pixel">Hours / Week</label>
+          <input type="number" step="0.5" className="pixel-input mt-1" value={hoursPerWeek}
+            onChange={(e) => setHoursPerWeek(Number(e.target.value) || 0)} />
+        </div>
+      </div>
+
+      <div className="pixel-box-sm space-y-1 text-base">
+        <div className="label-pixel mb-2">Gross Pay</div>
+        <Row label="Per week" v={money(weeklyGross)} />
+        <Row label="Per month" v={money(income / 12)} />
+        <Row label="Per year" v={money(income)} bold />
+      </div>
+
+      <div className="pixel-box-sm space-y-1 text-base">
+        <div className="label-pixel mb-2">Net Pay (after 19.9% tax)</div>
+        <Row label="Per paycheck (weekly)" v={money(weeklyNet)} bold className="text-accent" />
+        <Row label="Per month" v={money(calc.net / 12)} />
+        <Row label="Per year" v={money(calc.net)} />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <PctInput label="HYSA %" value={hysaPct} set={setHysaPct} />
-        <PctInput label="401(k) %" value={k401Pct} set={setK401Pct} />
-        <PctInput label="Roth IRA %" value={rothPct} set={setRothPct} />
+        <PctInput label="HYSA % of net" value={hysaPct} set={setHysaPct} />
+        <PctInput label="401(k) % of net" value={k401Pct} set={setK401Pct} />
+        <PctInput label="Roth IRA % of net" value={rothPct} set={setRothPct} />
         <div>
           <label className="label-pixel">Loans /yr</label>
           <input type="number" className="pixel-input mt-1" value={studentLoan}
@@ -417,16 +453,10 @@ function IncomeTab({ income, setIncome, hysaPct, setHysaPct, k401Pct, setK401Pct
       </div>
 
       <div className="pixel-box-sm space-y-1 text-base">
-        <div className="label-pixel mb-2">Tax Breakdown /mo</div>
-        <Row label="Federal" v={money(calc.fed / 12)} />
-        <Row label="Illinois (4.95%)" v={money(calc.il / 12)} />
-        <Row label="Social Security (6.2%)" v={money(calc.ss / 12)} />
-        <Row label="Medicare (1.45%)" v={money(calc.medicare / 12)} />
-        <div className="mt-2 border-t-2 border-dashed border-border pt-2">
-          <Row label="Total /mo" v={money(calc.taxes / 12)} bold />
-          <Row label="Effective rate"
-            v={`${income > 0 ? ((calc.taxes / income) * 100).toFixed(2) : "0.00"}%`} />
-        </div>
+        <div className="label-pixel mb-2">Tax (flat 19.9%)</div>
+        <Row label="Per week" v={money(calc.taxes / 52)} />
+        <Row label="Per month" v={money(calc.taxes / 12)} />
+        <Row label="Per year" v={money(calc.taxes)} bold />
       </div>
 
       <div className="pixel-box-sm grid sm:grid-cols-3 gap-3 text-base">
