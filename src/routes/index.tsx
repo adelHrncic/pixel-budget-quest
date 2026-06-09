@@ -291,7 +291,9 @@ function Index() {
           <OverviewTab calc={calc} pocket={pocket} income={income} onJump={changeTab} />
         ) : tab === "income" ? (
           <IncomeTab
-            income={income} setIncome={setIncome}
+            hourlyRate={hourlyRate} setHourlyRate={setHourlyRate}
+            hoursPerWeek={hoursPerWeek} setHoursPerWeek={setHoursPerWeek}
+            income={income}
             hysaPct={hysaPct} setHysaPct={setHysaPct}
             k401Pct={k401Pct} setK401Pct={setK401Pct}
             rothPct={rothPct} setRothPct={setRothPct}
