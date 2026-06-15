@@ -16,7 +16,8 @@ export const Route = createFileRoute("/")({
 type PocketItem = { id: string; name: string; amount: number; recurring?: boolean; month?: string };
 type Allocations = { taxes: number; hysa: number; k401: number; roth: number; studentLoan: number; pocket: number };
 type Paycheck = { id: string; amount: number; received_at: string; allocations: Allocations };
-type Goal = { id: string; name: string; target_amount: number; current_amount: number; deadline: string | null };
+type Goal = { id: string; name: string; target_amount: number; current_amount: number; deadline: string | null; start_date: string | null };
+type PaymentDue = { id: string; name: string; amount: number; due_date: string };
 
 const ALLOC_KEYS: (keyof Allocations)[] = ["taxes", "hysa", "k401", "roth", "studentLoan", "pocket"];
 const ALLOC_LABELS: Record<keyof Allocations, string> = {
@@ -53,12 +54,13 @@ const formatMonthKey = (k: string) => {
   return `${MONTH_NAMES[Number(m) - 1] ?? "?"} ${y}`;
 };
 
-type Tab = "overview" | "income" | "pocket" | "goals";
+type Tab = "overview" | "income" | "pocket" | "goals" | "calendar";
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "overview", label: "OVERVIEW", icon: "◆" },
   { id: "income", label: "INCOME", icon: "$" },
   { id: "pocket", label: "POCKET", icon: "▣" },
   { id: "goals", label: "GOALS", icon: "★" },
+  { id: "calendar", label: "CALENDAR", icon: "▦" },
 ];
 
 const POCKET_COLORS = [
@@ -99,6 +101,20 @@ function Index() {
   ]);
   const [paychecks, setPaychecks] = useState<Paycheck[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [paymentDues, setPaymentDues] = useState<PaymentDue[]>(() => {
+    if (typeof window === "undefined") return [];
+    try { return JSON.parse(localStorage.getItem("paymentDues") || "[]"); } catch { return []; }
+  });
+  const [daysMissed, setDaysMissed] = useState<number>(() => {
+    if (typeof window === "undefined") return 0;
+    return Number(localStorage.getItem("daysMissed")) || 0;
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("daysMissed", String(daysMissed));
+  }, [daysMissed]);
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("paymentDues", JSON.stringify(paymentDues));
+  }, [paymentDues]);
 
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState("");
@@ -144,6 +160,7 @@ function Index() {
         target_amount: Number(g.target_amount),
         current_amount: Number(g.current_amount),
         deadline: g.deadline,
+        start_date: g.start_date ?? null,
       })));
       setLoaded(true);
     });
@@ -329,11 +346,14 @@ function Index() {
             rothPct={rothPct} setRothPct={setRothPct}
             studentLoan={studentLoan} setStudentLoan={setStudentLoan}
             calc={calc}
+            daysMissed={daysMissed} setDaysMissed={setDaysMissed}
           />
         ) : tab === "pocket" ? (
           <PocketTab pocket={pocket} setPocket={setPocket} pocketMo={calc.pocketMo} pocketYr={calc.pocketYr} pocketLeftMo={calc.remainingMo} pocketLeftYr={calc.remaining} />
-        ) : (
+        ) : tab === "goals" ? (
           <GoalsTab goals={goals} setGoals={setGoals} userId={userId} />
+        ) : (
+          <CalendarTab paymentDues={paymentDues} setPaymentDues={setPaymentDues} />
         )}
       </div>
 
@@ -389,13 +409,13 @@ function OverviewTab({ calc, pocket, income, onJump }: {
       };
 
   const chartData = [
-    { name: "Taxes", value: slices.taxes, color: "#ef4444" },
-    { name: "HYSA", value: slices.hysa, color: "var(--mana)" },
-    { name: "401(k)", value: slices.k401, color: "var(--xp)" },
-    { name: "Roth IRA", value: slices.roth, color: "var(--coin)" },
-    { name: "Student Loans", value: slices.studentLoan, color: "var(--danger)" },
-    { name: "Planned Pocket", value: slices.pocket, color: "var(--pocket)" },
-    { name: "Pocket Money Left", value: Math.max(0, slices.remaining), color: "var(--accent)" },
+    { name: "Taxes", value: slices.taxes, color: "oklch(0.58 0.22 280)" },
+    { name: "HYSA", value: slices.hysa, color: "oklch(0.65 0.25 220)" },
+    { name: "401(k)", value: slices.k401, color: "oklch(0.72 0.22 185)" },
+    { name: "Roth IRA", value: slices.roth, color: "oklch(0.76 0.20 200)" },
+    { name: "Student Loans", value: slices.studentLoan, color: "oklch(0.60 0.20 260)" },
+    { name: "Planned Pocket", value: slices.pocket, color: "oklch(0.70 0.18 240)" },
+    { name: "Pocket Money Left", value: Math.max(0, slices.remaining), color: "oklch(0.80 0.22 165)" },
   ].filter((d) => d.value > 0);
 
   void income;
@@ -477,9 +497,16 @@ function OverviewTab({ calc, pocket, income, onJump }: {
 /* ---------------- INCOME ---------------- */
 function IncomeTab({ hourlyRate, setHourlyRate, hoursPerWeek, setHoursPerWeek, income,
   hysaPct, setHysaPct, k401Pct, setK401Pct,
-  rothPct, setRothPct, studentLoan, setStudentLoan, calc }: any) {
+  rothPct, setRothPct, studentLoan, setStudentLoan, calc,
+  daysMissed, setDaysMissed }: any) {
   const weeklyGross = hourlyRate * hoursPerWeek;
   const weeklyNet = weeklyGross * (1 - 0.199);
+  const hoursPerDay = hoursPerWeek / 5;
+  const missedIncome = hourlyRate * hoursPerDay * daysMissed;
+  const missedNet = missedIncome * (1 - 0.199);
+  const adjustedMonthlyGross = calc.monthlyGross - missedIncome;
+  const adjustedMonthlyNet = calc.monthlyNet - missedNet;
+
   return (
     <section className="pixel-box space-y-5">
       <h2 className="text-sm md:text-base text-accent">▶ INCOME & ALLOCATIONS</h2>
@@ -509,6 +536,30 @@ function IncomeTab({ hourlyRate, setHourlyRate, hoursPerWeek, setHoursPerWeek, i
         <Row label="Per paycheck (weekly)" v={money(weeklyNet)} bold className="text-accent" />
         <Row label="Per month" v={money(calc.net / 12)} />
         <Row label="Per year" v={money(calc.net)} />
+      </div>
+
+      {/* Days missed this month */}
+      <div className="pixel-box-sm space-y-3" style={{ borderColor: "oklch(0.65 0.25 220)", boxShadow: "4px 4px 0 oklch(0.65 0.25 220 / 0.3)" }}>
+        <div className="label-pixel mb-1" style={{ color: "oklch(0.65 0.25 220)" }}>Days Missed This Month</div>
+        <div className="text-xs text-muted-foreground mb-2">Unpaid holidays + unpaid sick days</div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="label-pixel">Days Missed</label>
+            <input type="number" min={0} step={0.5} className="pixel-input mt-1" value={daysMissed}
+              onChange={(e) => setDaysMissed(Math.max(0, Number(e.target.value) || 0))} />
+          </div>
+          <div className="flex flex-col justify-center text-base space-y-1">
+            <Row label="Lost gross" v={money(missedIncome)} className="text-destructive" />
+            <Row label="Lost net" v={money(missedNet)} className="text-destructive" />
+          </div>
+        </div>
+        {daysMissed > 0 && (
+          <div className="space-y-1 text-base pt-1 border-t border-dashed border-border">
+            <div className="label-pixel mb-1 text-[0.5rem]">Adjusted This Month</div>
+            <Row label="Gross (adjusted)" v={money(Math.max(0, adjustedMonthlyGross))} />
+            <Row label="Net (adjusted)" v={money(Math.max(0, adjustedMonthlyNet))} bold className="text-accent" />
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -787,6 +838,7 @@ function GoalsTab({ goals, setGoals, userId }: {
   const [name, setName] = useState("");
   const [target, setTarget] = useState<number | "">("");
   const [current, setCurrent] = useState<number | "">("");
+  const [startDate, setStartDate] = useState("");
   const [deadline, setDeadline] = useState("");
 
   const add = async () => {
@@ -795,6 +847,7 @@ function GoalsTab({ goals, setGoals, userId }: {
       user_id: userId, name,
       target_amount: Number(target),
       current_amount: Number(current) || 0,
+      start_date: startDate || null,
       deadline: deadline || null,
     }).select("*").single();
     if (error) { console.error(error); return; }
@@ -802,9 +855,10 @@ function GoalsTab({ goals, setGoals, userId }: {
       id: data.id, name: data.name,
       target_amount: Number(data.target_amount),
       current_amount: Number(data.current_amount),
+      start_date: data.start_date ?? null,
       deadline: data.deadline,
     }]);
-    setName(""); setTarget(""); setCurrent(""); setDeadline("");
+    setName(""); setTarget(""); setCurrent(""); setStartDate(""); setDeadline("");
   };
 
   const upd = async (id: string, patch: Partial<Omit<Goal, "id">>) => {
@@ -824,7 +878,7 @@ function GoalsTab({ goals, setGoals, userId }: {
 
       <div className="pixel-box-sm border-dashed mb-5">
         <div className="label-pixel mb-2">+ New Quest</div>
-        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
           <div>
             <label className="label-pixel">Name</label>
             <input className="pixel-input mt-1" placeholder="New car..."
@@ -841,7 +895,12 @@ function GoalsTab({ goals, setGoals, userId }: {
               value={current} onChange={(e) => setCurrent(e.target.value === "" ? "" : Number(e.target.value))} />
           </div>
           <div>
-            <label className="label-pixel">Deadline</label>
+            <label className="label-pixel">Start Date</label>
+            <input type="date" className="pixel-input mt-1" value={startDate}
+              onChange={(e) => setStartDate(e.target.value)} />
+          </div>
+          <div>
+            <label className="label-pixel">End Date</label>
             <input type="date" className="pixel-input mt-1" value={deadline}
               onChange={(e) => setDeadline(e.target.value)} />
           </div>
@@ -887,7 +946,8 @@ function GoalCard({ g, onUpdate, onRemove }: {
         <div>
           <div className="text-lg text-accent">★ {g.name}</div>
           <div className="text-xs text-muted-foreground">
-            {g.deadline ? `due ${g.deadline} · ${daysLeft} days left` : "no deadline set"}
+            {g.start_date ? `started ${g.start_date} · ` : ""}
+            {g.deadline ? `due ${g.deadline} · ${daysLeft} days left` : "no end date set"}
           </div>
         </div>
         <button className="pixel-btn danger !p-1 !text-[0.55rem]" onClick={() => onRemove(g.id)}>X</button>
@@ -901,7 +961,7 @@ function GoalCard({ g, onUpdate, onRemove }: {
         </span>
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <div>
           <label className="label-pixel">Target $</label>
           <input type="number" className="pixel-input mt-1" value={g.target_amount}
@@ -913,7 +973,12 @@ function GoalCard({ g, onUpdate, onRemove }: {
             onChange={(e) => onUpdate(g.id, { current_amount: Number(e.target.value) || 0 })} />
         </div>
         <div>
-          <label className="label-pixel">Deadline</label>
+          <label className="label-pixel">Start Date</label>
+          <input type="date" className="pixel-input mt-1" value={g.start_date ?? ""}
+            onChange={(e) => onUpdate(g.id, { start_date: e.target.value || null })} />
+        </div>
+        <div>
+          <label className="label-pixel">End Date</label>
           <input type="date" className="pixel-input mt-1" value={g.deadline ?? ""}
             onChange={(e) => onUpdate(g.id, { deadline: e.target.value || null })} />
         </div>
@@ -939,6 +1004,187 @@ function GoalCard({ g, onUpdate, onRemove }: {
         </div>
       )}
     </div>
+  );
+}
+
+/* ---------------- CALENDAR ---------------- */
+function CalendarTab({ paymentDues, setPaymentDues }: {
+  paymentDues: PaymentDue[];
+  setPaymentDues: React.Dispatch<React.SetStateAction<PaymentDue[]>>;
+}) {
+  const [newName, setNewName] = useState("");
+  const [newAmt, setNewAmt] = useState<number | "">("");
+  const [newDate, setNewDate] = useState("");
+  const [viewDate, setViewDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+
+  const [viewY, viewM] = viewDate.split("-").map(Number);
+  const firstDay = new Date(viewY, viewM - 1, 1).getDay();
+  const daysInMonth = new Date(viewY, viewM, 0).getDate();
+  const today = new Date();
+  const isCurrentMonth = today.getFullYear() === viewY && today.getMonth() + 1 === viewM;
+
+  const add = () => {
+    if (!newName || !newDate) return;
+    setPaymentDues((prev) => [...prev, {
+      id: Date.now().toString(),
+      name: newName,
+      amount: Number(newAmt) || 0,
+      due_date: newDate,
+    }]);
+    setNewName(""); setNewAmt(""); setNewDate("");
+  };
+  const rm = (id: string) => setPaymentDues((prev) => prev.filter((p) => p.id !== id));
+
+  const paymentsThisMonth = paymentDues.filter((p) => {
+    const [y, m] = p.due_date.split("-").map(Number);
+    return y === viewY && m === viewM;
+  });
+
+  const paymentsByDay: Record<number, PaymentDue[]> = {};
+  for (const p of paymentsThisMonth) {
+    const day = Number(p.due_date.split("-")[2]);
+    if (!paymentsByDay[day]) paymentsByDay[day] = [];
+    paymentsByDay[day].push(p);
+  }
+
+  const prevMonth = () => {
+    const d = new Date(viewY, viewM - 2, 1);
+    setViewDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+  };
+  const nextMonth = () => {
+    const d = new Date(viewY, viewM, 1);
+    setViewDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+  };
+
+  const totalDue = paymentsThisMonth.reduce((s, p) => s + p.amount, 0);
+  const DAYS = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
+
+  return (
+    <section className="pixel-box space-y-5">
+      <h2 className="text-sm md:text-base text-accent">▶ PAYMENT CALENDAR</h2>
+
+      {/* Add payment form */}
+      <div className="pixel-box-sm border-dashed">
+        <div className="label-pixel mb-2">+ Add Payment Due</div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div>
+            <label className="label-pixel">Name</label>
+            <input className="pixel-input mt-1" placeholder="Rent..."
+              value={newName} onChange={(e) => setNewName(e.target.value)} maxLength={30} />
+          </div>
+          <div>
+            <label className="label-pixel">Amount $</label>
+            <input type="number" className="pixel-input mt-1" placeholder="0"
+              value={newAmt} onChange={(e) => setNewAmt(e.target.value === "" ? "" : Number(e.target.value))} />
+          </div>
+          <div>
+            <label className="label-pixel">Due Date</label>
+            <input type="date" className="pixel-input mt-1" value={newDate}
+              onChange={(e) => setNewDate(e.target.value)} />
+          </div>
+        </div>
+        <button className="pixel-btn coin w-full mt-3" onClick={add}>+ ADD PAYMENT</button>
+      </div>
+
+      {/* Month nav */}
+      <div className="flex items-center justify-between gap-2">
+        <button className="pixel-btn" onClick={prevMonth}>◀ PREV</button>
+        <span className="label-pixel text-accent">{formatMonthKey(viewDate)}</span>
+        <button className="pixel-btn" onClick={nextMonth}>NEXT ▶</button>
+      </div>
+
+      {/* Calendar grid */}
+      <div className="pixel-box-sm !p-2">
+        <div className="grid grid-cols-7 gap-[2px] mb-1">
+          {DAYS.map((d) => (
+            <div key={d} className="text-center text-[0.5rem] text-muted-foreground py-1">{d}</div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-[2px]">
+          {Array.from({ length: firstDay }).map((_, i) => (
+            <div key={`empty-${i}`} />
+          ))}
+          {Array.from({ length: daysInMonth }).map((_, i) => {
+            const day = i + 1;
+            const payments = paymentsByDay[day] ?? [];
+            const isToday = isCurrentMonth && today.getDate() === day;
+            return (
+              <div
+                key={day}
+                className="min-h-[52px] p-[3px] border border-border flex flex-col gap-[2px]"
+                style={{
+                  background: isToday ? "oklch(0.65 0.25 220 / 0.2)" : payments.length ? "oklch(0.58 0.22 280 / 0.15)" : "var(--card)",
+                  borderColor: isToday ? "oklch(0.65 0.25 220)" : payments.length ? "oklch(0.58 0.22 280)" : "var(--border)",
+                }}
+              >
+                <span className="text-[0.55rem] font-bold" style={{ color: isToday ? "oklch(0.65 0.25 220)" : "var(--muted-foreground)" }}>
+                  {day}
+                </span>
+                {payments.map((p) => (
+                  <div
+                    key={p.id}
+                    className="text-[0.45rem] px-[2px] py-[1px] truncate cursor-pointer"
+                    style={{ background: "oklch(0.58 0.22 280 / 0.5)", color: "oklch(0.90 0.05 220)" }}
+                    title={`${p.name} — ${money(p.amount)}`}
+                    onClick={() => rm(p.id)}
+                  >
+                    {p.name}{p.amount > 0 ? ` $${p.amount}` : ""}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Payment list for this month */}
+      {paymentsThisMonth.length > 0 ? (
+        <div className="pixel-box-sm">
+          <div className="label-pixel mb-2">Due This Month · {money(totalDue)} total</div>
+          <ul className="space-y-1">
+            {paymentsThisMonth.sort((a, b) => a.due_date.localeCompare(b.due_date)).map((p) => (
+              <li key={p.id} className="flex items-center justify-between gap-2 border-b border-dashed border-border pb-1 text-base">
+                <span>
+                  <span className="text-accent">{p.due_date.split("-")[2]}</span>
+                  {" · "}<span style={{ color: "oklch(0.76 0.20 200)" }}>{p.name}</span>
+                  {p.amount > 0 && <span className="ml-2 text-muted-foreground">{money(p.amount)}</span>}
+                </span>
+                <button className="pixel-btn danger !p-1 !text-[0.55rem]" onClick={() => rm(p.id)}>X</button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <div className="pixel-box-sm text-center text-muted-foreground">
+          ~ no payments due this month · add one above ~
+        </div>
+      )}
+
+      {/* All upcoming payments */}
+      {paymentDues.filter((p) => p.due_date >= new Date().toISOString().slice(0, 10)).length > 0 && (
+        <div className="pixel-box-sm">
+          <div className="label-pixel mb-2">Upcoming All</div>
+          <ul className="space-y-1 max-h-40 overflow-auto text-sm">
+            {paymentDues
+              .filter((p) => p.due_date >= new Date().toISOString().slice(0, 10))
+              .sort((a, b) => a.due_date.localeCompare(b.due_date))
+              .map((p) => (
+              <li key={p.id} className="flex items-center justify-between gap-2 border-b border-dashed border-border pb-1">
+                <span>
+                  <span className="text-accent">{p.due_date}</span>
+                  {" · "}{p.name}
+                  {p.amount > 0 && <span className="ml-2 text-muted-foreground">{money(p.amount)}</span>}
+                </span>
+                <button className="pixel-btn danger !p-1 !text-[0.55rem]" onClick={() => rm(p.id)}>X</button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
   );
 }
 
