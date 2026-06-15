@@ -230,9 +230,19 @@ function Index() {
     const pocketYr = pocket.reduce((s, p) => s + (p.recurring !== false ? p.amount * 12 : p.amount), 0);
 
     // Monthly figures based on actual paychecks this month
-    const monthlyGross = weeklyGross * wednesdaysThisMonth;
-    const monthlyTaxes = weeklyTaxes * wednesdaysThisMonth;
-    const monthlyNet = weeklyNet * wednesdaysThisMonth;
+    const monthlyGrossBase = weeklyGross * wednesdaysThisMonth;
+    const monthlyTaxesBase = weeklyTaxes * wednesdaysThisMonth;
+    const monthlyNetBase = weeklyNet * wednesdaysThisMonth;
+
+    // Deduct missed days (unpaid holidays + sick days)
+    const missedGross = hourlyRate * (hoursPerWeek / 5) * daysMissed;
+    const missedTaxes = missedGross * 0.199;
+    const missedNet = missedGross * (1 - 0.199);
+
+    const monthlyGross = Math.max(0, monthlyGrossBase - missedGross);
+    const monthlyTaxes = Math.max(0, monthlyTaxesBase - missedTaxes);
+    const monthlyNet = Math.max(0, monthlyNetBase - missedNet);
+
     const hysaMo = monthlyNet * (hysaPct / 100);
     const k401Mo = monthlyNet * (k401Pct / 100);
     const rothMo = monthlyNet * (rothPct / 100);
@@ -249,9 +259,9 @@ function Index() {
       weeklyGross, weeklyNet, weeklyTaxes,
       monthlyGross, monthlyNet, monthlyTaxes,
       hysaMo, k401Mo, rothMo, studentLoanMo,
-      wednesdaysThisMonth,
+      wednesdaysThisMonth, missedGross, missedNet,
     };
-  }, [income, hysaPct, k401Pct, rothPct, studentLoan, pocket, wednesdaysThisMonth]);
+  }, [income, hourlyRate, hoursPerWeek, daysMissed, hysaPct, k401Pct, rothPct, studentLoan, pocket, wednesdaysThisMonth]);
 
 
   const allocatePaycheck = (amount: number): Allocations => {
@@ -335,7 +345,7 @@ function Index() {
         {!loaded ? (
           <div className="pixel-box text-center text-muted-foreground blink">~ loading save file ~</div>
         ) : tab === "overview" ? (
-          <OverviewTab calc={calc} pocket={pocket} income={income} onJump={changeTab} />
+          <OverviewTab calc={calc} pocket={pocket} income={income} onJump={changeTab} daysMissed={daysMissed} />
         ) : tab === "income" ? (
           <IncomeTab
             hourlyRate={hourlyRate} setHourlyRate={setHourlyRate}
@@ -365,9 +375,9 @@ function Index() {
 }
 
 /* ---------------- OVERVIEW ---------------- */
-function OverviewTab({ calc, pocket, income, onJump }: {
+function OverviewTab({ calc, pocket, income, onJump, daysMissed }: {
   calc: ReturnType<typeof useMemo> extends infer T ? any : any;
-  pocket: PocketItem[]; income: number; onJump: (t: Tab) => void;
+  pocket: PocketItem[]; income: number; onJump: (t: Tab) => void; daysMissed: number;
 }) {
   const [view, setView] = useState<"weekly" | "monthly" | "yearly">("monthly");
   const fmt = (n: number) => money(n);
@@ -422,7 +432,7 @@ function OverviewTab({ calc, pocket, income, onJump }: {
   void pocket;
 
   const viewLabel = view === "weekly" ? "weekly" : view === "monthly"
-    ? `${formatMonthKey(currentMonthKey())} · ${calc.wednesdaysThisMonth} paychecks`
+    ? `${formatMonthKey(currentMonthKey())} · ${calc.wednesdaysThisMonth} paychecks${daysMissed > 0 ? ` · ${daysMissed}d missed` : ""}`
     : "yearly";
 
   return (
@@ -477,6 +487,15 @@ function OverviewTab({ calc, pocket, income, onJump }: {
         ))}
       </ul>
 
+      {view === "monthly" && daysMissed > 0 && (
+        <div className="mt-3 px-3 py-2 text-sm flex items-center gap-2"
+          style={{ background: "oklch(0.58 0.22 280 / 0.15)", border: "2px solid oklch(0.58 0.22 280)", color: "oklch(0.80 0.18 220)" }}>
+          <span>⚠</span>
+          <span>{daysMissed} day{daysMissed !== 1 ? "s" : ""} missed · lost {fmt(calc.missedNet)} net · {fmt(calc.missedGross)} gross</span>
+          <button className="ml-auto pixel-btn !p-1 !text-[0.5rem]" onClick={() => onJump("income")}>EDIT</button>
+        </div>
+      )}
+
       <div className="mt-4 pixel-box-sm">
         <Row label={`Net Income (${view})`} v={fmt(slices.net)} />
         <Row label="Taxes withheld" v={fmt(slices.taxes)} />
@@ -501,11 +520,6 @@ function IncomeTab({ hourlyRate, setHourlyRate, hoursPerWeek, setHoursPerWeek, i
   daysMissed, setDaysMissed }: any) {
   const weeklyGross = hourlyRate * hoursPerWeek;
   const weeklyNet = weeklyGross * (1 - 0.199);
-  const hoursPerDay = hoursPerWeek / 5;
-  const missedIncome = hourlyRate * hoursPerDay * daysMissed;
-  const missedNet = missedIncome * (1 - 0.199);
-  const adjustedMonthlyGross = calc.monthlyGross - missedIncome;
-  const adjustedMonthlyNet = calc.monthlyNet - missedNet;
 
   return (
     <section className="pixel-box space-y-5">
@@ -549,15 +563,15 @@ function IncomeTab({ hourlyRate, setHourlyRate, hoursPerWeek, setHoursPerWeek, i
               onChange={(e) => setDaysMissed(Math.max(0, Number(e.target.value) || 0))} />
           </div>
           <div className="flex flex-col justify-center text-base space-y-1">
-            <Row label="Lost gross" v={money(missedIncome)} className="text-destructive" />
-            <Row label="Lost net" v={money(missedNet)} className="text-destructive" />
+            <Row label="Lost gross" v={money(calc.missedGross)} className="text-destructive" />
+            <Row label="Lost net" v={money(calc.missedNet)} className="text-destructive" />
           </div>
         </div>
         {daysMissed > 0 && (
           <div className="space-y-1 text-base pt-1 border-t border-dashed border-border">
             <div className="label-pixel mb-1 text-[0.5rem]">Adjusted This Month</div>
-            <Row label="Gross (adjusted)" v={money(Math.max(0, adjustedMonthlyGross))} />
-            <Row label="Net (adjusted)" v={money(Math.max(0, adjustedMonthlyNet))} bold className="text-accent" />
+            <Row label="Gross (adjusted)" v={money(calc.monthlyGross)} />
+            <Row label="Net (adjusted)" v={money(calc.monthlyNet)} bold className="text-accent" />
           </div>
         )}
       </div>
