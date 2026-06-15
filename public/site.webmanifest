@@ -1,0 +1,16 @@
+{
+  "name": "Budget Quest",
+  "short_name": "Budget Quest",
+  "description": "Retro 8-bit budget manager",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1030",
+  "theme_color": "#1a1030",
+  "icons": [
+    {
+      "src": "/icon.jpg",
+      "sizes": "any",
+      "type": "image/jpeg"
+    }
+  ]
+}
